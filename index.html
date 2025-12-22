@@ -1,195 +1,322 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống POS Online - Lưu Google Sheets</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/lucide.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
-</head>
-<body class="bg-slate-100">
-    <div id="root"></div>
+import React, { useState, useRef } from 'react';
+import { ShoppingCart, Plus, Trash2, Send, Save, Image as ImageIcon, CheckCircle2, PackageX } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+// Component chính của ứng dụng
+export default function App() {
+  // Các state để lưu trữ dữ liệu
+  const [items, setItems] = useState([]); // Danh sách mặt hàng
+  const [customer, setCustomer] = useState('Khách lẻ'); // Tên khách
+  const [customerNote, setCustomerNote] = useState(''); // Ghi chú khách
+  const [form, setForm] = useState({ name: '', qty: 1, price: '' }); // Form nhập hàng
+  const [isProcessing, setIsProcessing] = useState(false); // Trạng thái đang xử lý ảnh
+  const [notification, setNotification] = useState(null); // Thông báo nổi
 
-        function App() {
-            const [items, setItems] = useState([]);
-            const [form, setForm] = useState({ name: '', qty: 1, price: '' });
-            const [customer, setCustomer] = useState('Khách lẻ');
-            const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('gsheet_url') || '');
-            const [isSaving, setIsSaving] = useState(false);
+  // Ref để tham chiếu đến phần hóa đơn ẩn cần chụp ảnh
+  const receiptRef = useRef(null);
 
-            // Lưu URL vào localStorage để không phải nhập lại
-            useEffect(() => {
-                localStorage.setItem('gsheet_url', sheetUrl);
-            }, [sheetUrl]);
+  // Hàm hiển thị thông báo
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
-            const addItem = () => {
-                if (!form.name || !form.price) return;
-                const newItem = {
-                    id: Date.now(),
-                    ...form,
-                    qty: Number(form.qty),
-                    price: Number(form.price)
-                };
-                setItems([newItem, ...items]);
-                setForm({ name: '', qty: 1, price: '' });
-            };
+  // Hàm thêm mặt hàng vào danh sách
+  const addItem = () => {
+    if (!form.name || !form.price) {
+      showNotification('Vui lòng nhập tên và giá!', 'error');
+      return;
+    }
+    const newItem = {
+      id: Date.now(),
+      name: form.name,
+      qty: Number(form.qty),
+      price: Number(form.price),
+    };
+    setItems([...items, newItem]);
+    setForm({ name: '', qty: 1, price: '' }); // Reset form
+    // Rung nhẹ điện thoại để phản hồi (chỉ Android)
+    if (navigator.vibrate) navigator.vibrate(50);
+  };
 
-            const removeItem = (id) => {
-                setItems(items.filter(item => item.id !== id));
-            };
+  // Hàm xóa mặt hàng
+  const removeItem = (id) => {
+    setItems(items.filter(item => item.id !== id));
+  };
 
-            const totalAmount = items.reduce((sum, i) => sum + (i.qty * i.price), 0);
+  // Tính tổng tiền
+  const totalAmount = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+  const formattedTotal = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount);
 
-            const saveToSheets = async () => {
-                if (!sheetUrl) {
-                    alert("Vui lòng nhập URL Google Apps Script!");
-                    return;
-                }
-                setIsSaving(true);
-                try {
-                    await fetch(sheetUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            customer,
-                            items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price }))
-                        })
-                    });
-                    alert("Đã gửi dữ liệu thành công!");
-                } catch (err) {
-                    alert("Lỗi kết nối!");
-                } finally {
-                    setIsSaving(false);
-                }
-            };
+  // --- CHỨC NĂNG CỐT LÕI: XỬ LÝ ẢNH VÀ GỬI ZALO ---
+  const handleZaloShare = async () => {
+    if (items.length === 0) {
+      showNotification('Chưa có hàng để gửi!', 'error');
+      return;
+    }
 
-            return (
-                <div className="min-h-screen flex justify-center pb-40">
-                    <div className="w-full max-w-md bg-white shadow-2xl flex flex-col min-h-screen">
-                        
-                        {/* Header */}
-                        <div className="bg-indigo-700 p-6 text-white shadow-lg">
-                            <h1 className="text-xl font-extrabold tracking-tight">HỆ THỐNG POS ONLINE</h1>
-                            <p className="text-[10px] opacity-70 mt-1 uppercase font-semibold tracking-widest">Đồng bộ Google Drive</p>
-                        </div>
+    setIsProcessing(true);
+    showNotification('Đang tạo ảnh hóa đơn...', 'info');
 
-                        {/* Config */}
-                        <div className="p-4 bg-indigo-50 border-b border-indigo-100 space-y-3">
-                            <div>
-                                <label className="text-[10px] font-bold text-indigo-400 uppercase">Google Apps Script URL</label>
-                                <input 
-                                    className="w-full mt-1 p-2 text-[10px] border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="Dán URL Web App từ Google Sheets..."
-                                    value={sheetUrl}
-                                    onChange={(e) => setSheetUrl(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-indigo-400 uppercase">Tên khách hàng</label>
-                                <input 
-                                    className="w-full mt-1 p-3 bg-white border border-indigo-200 rounded-xl font-bold text-sm"
-                                    value={customer}
-                                    onChange={(e) => setCustomer(e.target.value)}
-                                />
-                            </div>
-                        </div>
+    try {
+      // 1. Đảm bảo thư viện html2canvas đã tải
+      if (!window.html2canvas) {
+        await loadHtml2Canvas();
+      }
 
-                        {/* Input Form */}
-                        <div className="p-4 space-y-3">
-                            <input 
-                                placeholder="Tên hàng hóa..." 
-                                className="w-full p-4 bg-slate-50 rounded-2xl border-none shadow-inner text-sm outline-none"
-                                value={form.name}
-                                onChange={(e) => setForm({...form, name: e.target.value})}
-                            />
-                            <div className="flex gap-2">
-                                <input 
-                                    type="number" placeholder="SL" 
-                                    className="w-1/4 p-4 bg-slate-50 rounded-2xl border-none shadow-inner text-sm text-center font-bold"
-                                    value={form.qty}
-                                    onChange={(e) => setForm({...form, qty: e.target.value})}
-                                />
-                                <input 
-                                    type="number" placeholder="Đơn giá" 
-                                    className="w-3/4 p-4 bg-slate-50 rounded-2xl border-none shadow-inner text-sm font-bold text-indigo-700"
-                                    value={form.price}
-                                    onChange={(e) => setForm({...form, price: e.target.value})}
-                                />
-                            </div>
-                            <button 
-                                onClick={addItem}
-                                className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-xs uppercase"
-                            >
-                                Thêm vào đơn hàng
-                            </button>
-                        </div>
+      // 2. Hiển thị phần hóa đơn ẩn để chụp
+      const element = receiptRef.current;
+      element.style.display = 'block';
 
-                        {/* List Area */}
-                        <div className="p-4 flex-1 overflow-y-auto">
-                            {items.length === 0 ? (
-                                <div className="py-10 text-center text-slate-300 italic text-sm">Danh sách trống</div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {items.map(item => (
-                                        <div key={item.id} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 text-sm">{item.name}</h4>
-                                                <p className="text-[10px] text-slate-400">{item.qty} x {item.price.toLocaleString()}đ</p>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className="font-bold text-indigo-600">{(item.qty * item.price).toLocaleString()}đ</span>
-                                                <button onClick={() => removeItem(item.id)} className="text-red-300 hover:text-red-500">
-                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+      // 3. Chụp ảnh
+      const canvas = await window.html2canvas(element, {
+        scale: 3, // Tăng độ nét cho điện thoại
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
 
-                        {/* Footer Actions */}
-                        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t p-5 shadow-[0_-10px_30px_rgba(0,0,0,0.1)] z-50">
-                            <div className="flex justify-between items-center mb-5 px-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng cộng</span>
-                                <span className="text-2xl font-black text-indigo-700">{totalAmount.toLocaleString()}đ</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button 
-                                    onClick={saveToSheets}
-                                    disabled={isSaving || items.length === 0}
-                                    className="flex flex-col items-center justify-center bg-emerald-600 py-4 rounded-3xl text-[10px] font-bold uppercase text-white shadow-xl active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    <span className="mb-1 text-lg">📊</span> {isSaving ? 'Đang lưu...' : 'Lưu Google Sheets'}
-                                </button>
-                                <button className="flex flex-col items-center justify-center bg-blue-600 py-4 rounded-3xl text-[10px] font-bold uppercase text-white shadow-xl active:scale-95 transition-all">
-                                    <span className="mb-1 text-lg">💬</span> Gửi Zalo
-                                </button>
-                            </div>
-                        </div>
+      // 4. Ẩn lại hóa đơn
+      element.style.display = 'none';
 
-                    </div>
-                </div>
-            );
-        }
+      // 5. Chuyển đổi sang dữ liệu ảnh
+      const imageUri = canvas.toDataURL('image/png');
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+      // 6. Tạo link tải xuống tự động
+      const link = document.createElement('a');
+      link.href = imageUri;
+      link.download = `DonHang_${customer.replace(/\s+/g, '_')}_${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showNotification('✅ Ảnh đã lưu vào máy! Đang mở Zalo...');
+
+      // 7. Thử mở ứng dụng Zalo sau 1.5 giây
+      setTimeout(() => {
+        // Deep link để mở app Zalo
+        window.location.href = 'zalo://';
         
-        // Initialize icons
-        setTimeout(() => lucide.createIcons(), 500);
-    </script>
-</body>
-</html>
+        // Fallback: Nếu không mở được app sau 2s thì mở web (ít khi xảy ra trên mobile)
+        setTimeout(() => {
+             if (document.hasFocus()) {
+                  console.log("App Zalo không phản hồi, hướng dẫn người dùng thủ công.");
+             }
+        }, 2000);
+
+      }, 1500);
+
+    } catch (error) {
+      console.error('Lỗi khi tạo ảnh:', error);
+      showNotification('Lỗi khi tạo ảnh. Vui lòng thử lại.', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+    // Hàm tải thư viện chụp ảnh (nếu chưa có)
+    const loadHtml2Canvas = () => {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    };
+
+
+  // --- GIAO DIỆN NGƯỜI DÙNG ---
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans pb-32 select-none relative">
+        
+      {/* Thông báo nổi */}
+      {notification && (
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-2 animate-bounce ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-600 text-white'}`}>
+          {notification.type === 'error' ? <PackageX size={18}/> : <CheckCircle2 size={18}/>}
+          <span className="text-sm font-medium">{notification.message}</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="bg-blue-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10">
+        <div className="flex justify-between items-center">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <ShoppingCart size={24} /> App Bán Hàng
+          </h1>
+          <span className="text-xs bg-blue-500 px-2 py-1 rounded-full">Mobile POS</span>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto p-4 space-y-4">
+        {/* Card 1: Thông tin khách hàng */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+          <h2 className="text-sm font-bold text-slate-500 uppercase mb-3">Thông tin khách hàng</h2>
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Tên khách hàng (Ví dụ: Anh Tuấn)"
+              value={customer}
+              onChange={(e) => setCustomer(e.target.value)}
+              className="w-full p-3 bg-slate-100 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+            />
+             <input
+              type="text"
+              placeholder="Ghi chú (SĐT, Địa chỉ...)"
+              value={customerNote}
+              onChange={(e) => setCustomerNote(e.target.value)}
+              className="w-full p-3 bg-slate-100 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Card 2: Nhập hàng */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+           <h2 className="text-sm font-bold text-slate-500 uppercase mb-3">Thêm sản phẩm</h2>
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Tên sản phẩm..."
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full p-3 bg-slate-100 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+            />
+            <div className="flex gap-3">
+              <input
+                type="number"
+                placeholder="SL"
+                min="1"
+                value={form.qty}
+                onChange={(e) => setForm({ ...form, qty: e.target.value })}
+                className="w-1/3 p-3 bg-slate-100 rounded-xl font-bold text-center focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+              />
+              <input
+                type="number"
+                placeholder="Đơn giá (VNĐ)"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                className="w-2/3 p-3 bg-slate-100 rounded-xl font-bold text-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+              />
+            </div>
+            <button
+              onClick={addItem}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
+            >
+              <Plus size={20} /> Thêm vào đơn
+            </button>
+          </div>
+        </div>
+
+        {/* Card 3: Danh sách đơn hàng */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 min-h-[200px]">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-sm font-bold text-slate-500 uppercase">Chi tiết đơn hàng</h2>
+            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-bold">{items.length} Món</span>
+          </div>
+          
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-slate-300">
+                <ShoppingCart size={48} className="mb-2 opacity-50"/>
+                <p className="text-sm italic">Chưa có sản phẩm nào</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {items.map((item) => (
+                <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 animate-in slide-in-from-bottom-2">
+                  <div>
+                    <h4 className="font-bold text-slate-800">{item.name}</h4>
+                    <div className="text-xs text-slate-500 font-medium mt-1">
+                      <span className="bg-white px-2 py-0.5 rounded border">{item.qty}</span> x {new Intl.NumberFormat('vi-VN').format(item.price)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-blue-700">
+                      {new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}
+                    </span>
+                    <button onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-red-500 bg-white p-2 rounded-full active:bg-red-50 transition-colors">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Thanh thanh toán cố định phía dưới */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] rounded-t-3xl z-20">
+        <div className="max-w-md mx-auto">
+            <div className="flex justify-between items-center mb-4 px-2">
+            <span className="text-sm font-bold text-slate-500 uppercase">Tổng thanh toán</span>
+            <span className="text-2xl font-black text-blue-700">{formattedTotal}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+            <button className="flex items-center justify-center gap-2 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl active:scale-95 transition-transform border-2 border-slate-200">
+                <Save size={20} /> Lưu đơn
+            </button>
+            <button 
+                onClick={handleZaloShare}
+                disabled={isProcessing || items.length === 0}
+                className={`flex items-center justify-center gap-2 font-bold py-3 rounded-2xl shadow-lg active:scale-95 transition-all ${isProcessing ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0068ff] text-white'}`}
+            >
+                {isProcessing ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div> : <Send size={20} />} 
+                {isProcessing ? 'Đang xử lý...' : 'Gửi Zalo Ngay'}
+            </button>
+            </div>
+        </div>
+      </div>
+
+
+      {/* --- MẪU HÓA ĐƠN ẨN (Dùng để chụp ảnh) --- */}
+      {/* Phần này bị ẩn đi khỏi giao diện chính, chỉ hiện lên trong tích tắc để html2canvas chụp lại */}
+      <div 
+        ref={receiptRef} 
+        style={{
+          display: 'none', // Ẩn mặc định
+          position: 'fixed', top: 0, left: 0, zIndex: -1, // Đưa ra khỏi màn hình
+          width: '500px', padding: '40px', backgroundColor: 'white', color: '#000', fontFamily: 'Arial, sans-serif'
+        }}
+      >
+        <div style={{textAlign: 'center', borderBottom: '3px solid #000', paddingBottom: '15px', marginBottom: '20px'}}>
+          <h1 style={{fontSize: '28px', fontWeight: '900', textTransform: 'uppercase', margin: 0}}>HÓA ĐƠN BÁN LẺ</h1>
+          <p style={{fontSize: '14px', color: '#555', marginTop: '5px'}}>{new Date().toLocaleString('vi-VN')}</p>
+        </div>
+        <div style={{marginBottom: '20px'}}>
+          <p style={{margin: '5px 0', fontSize: '16px'}}><strong>Khách hàng:</strong> {customer}</p>
+          {customerNote && <p style={{margin: '5px 0', fontSize: '14px', fontStyle: 'italic', color: '#555'}}>Ghi chú: {customerNote}</p>}
+        </div>
+        <table style={{width: '100%', borderCollapse: 'collapse', marginBottom: '20px'}}>
+          <thead>
+            <tr style={{borderBottom: '2px solid #000', fontSize: '14px', textTransform: 'uppercase'}}>
+              <th style={{textAlign: 'left', padding: '10px 0'}}>Tên hàng</th>
+              <th style={{textAlign: 'center', padding: '10px'}}>SL</th>
+              <th style={{textAlign: 'right', padding: '10px 0'}}>Đơn giá</th>
+              <th style={{textAlign: 'right', padding: '10px 0'}}>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={index} style={{borderBottom: '1px dotted #ccc'}}>
+                <td style={{padding: '12px 0', fontWeight: '500'}}>{item.name}</td>
+                <td style={{textAlign: 'center', padding: '12px'}}>{item.qty}</td>
+                <td style={{textAlign: 'right', padding: '12px 0'}}>{new Intl.NumberFormat('vi-VN').format(item.price)}</td>
+                <td style={{textAlign: 'right', padding: '12px 0', fontWeight: 'bold'}}>{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{textAlign: 'right', borderTop: '3px solid #000', paddingTop: '15px'}}>
+           <p style={{fontSize: '16px', fontWeight: 'bold', margin: 0}}>TỔNG CỘNG PHẢI THANH TOÁN:</p>
+           <p style={{fontSize: '32px', fontWeight: '900', color: '#0068ff', margin: '5px 0 0 0'}}>{formattedTotal}</p>
+        </div>
+        <div style={{textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#777', fontStyle: 'italic'}}>
+            <p>Cảm ơn quý khách đã ủng hộ!</p>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 
