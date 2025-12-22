@@ -1,30 +1,40 @@
-import React, { useState, useRef } from 'react';
-import { ShoppingCart, Plus, Trash2, Send, Save, Image as ImageIcon, CheckCircle2, PackageX } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ShoppingCart, Plus, Trash2, Send, Save, Settings, X, CheckCircle2, PackageX, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
-// Component chính của ứng dụng
 export default function App() {
-  // Các state để lưu trữ dữ liệu
-  const [items, setItems] = useState([]); // Danh sách mặt hàng
-  const [customer, setCustomer] = useState('Khách lẻ'); // Tên khách
-  const [customerNote, setCustomerNote] = useState(''); // Ghi chú khách
-  const [form, setForm] = useState({ name: '', qty: 1, price: '' }); // Form nhập hàng
-  const [isProcessing, setIsProcessing] = useState(false); // Trạng thái đang xử lý ảnh
-  const [notification, setNotification] = useState(null); // Thông báo nổi
-
-  // Ref để tham chiếu đến phần hóa đơn ẩn cần chụp ảnh
+  // --- STATE DỮ LIỆU ---
+  const [items, setItems] = useState([]);
+  const [customer, setCustomer] = useState('Khách lẻ');
+  const [customerNote, setCustomerNote] = useState('');
+  const [form, setForm] = useState({ name: '', qty: 1, price: '' });
+  
+  // --- STATE HỆ THỐNG ---
+  const [isProcessingZalo, setIsProcessingZalo] = useState(false);
+  const [isSavingSheet, setIsSavingSheet] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // --- CẤU HÌNH ---
+  const [sheetUrl, setSheetUrl] = useState('');
   const receiptRef = useRef(null);
 
-  // Hàm hiển thị thông báo
+  // Load URL từ bộ nhớ máy khi mở app
+  useEffect(() => {
+    const savedUrl = localStorage.getItem('POS_SHEET_URL');
+    if (savedUrl) setSheetUrl(savedUrl);
+  }, []);
+
+  // Hàm thông báo nổi
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Hàm thêm mặt hàng vào danh sách
+  // --- LOGIC BÁN HÀNG ---
   const addItem = () => {
     if (!form.name || !form.price) {
-      showNotification('Vui lòng nhập tên và giá!', 'error');
+      showNotification('Thiếu tên hoặc giá!', 'error');
       return;
     }
     const newItem = {
@@ -34,208 +44,217 @@ export default function App() {
       price: Number(form.price),
     };
     setItems([...items, newItem]);
-    setForm({ name: '', qty: 1, price: '' }); // Reset form
-    // Rung nhẹ điện thoại để phản hồi (chỉ Android)
+    setForm({ name: '', qty: 1, price: '' });
     if (navigator.vibrate) navigator.vibrate(50);
   };
 
-  // Hàm xóa mặt hàng
-  const removeItem = (id) => {
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  // Tính tổng tiền
+  const removeItem = (id) => setItems(items.filter(item => item.id !== id));
   const totalAmount = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
   const formattedTotal = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount);
 
-  // --- CHỨC NĂNG CỐT LÕI: XỬ LÝ ẢNH VÀ GỬI ZALO ---
-  const handleZaloShare = async () => {
-    if (items.length === 0) {
-      showNotification('Chưa có hàng để gửi!', 'error');
+  // --- CHỨC NĂNG 1: LƯU VÀO GOOGLE SHEETS ---
+  const handleSaveToSheet = async () => {
+    if (items.length === 0) return showNotification('Đơn hàng trống!', 'error');
+    
+    if (!sheetUrl) {
+      setShowSettings(true);
+      showNotification('Cần nhập URL Google Sheets trước!', 'error');
       return;
     }
 
-    setIsProcessing(true);
+    setIsSavingSheet(true);
+    
+    try {
+      // Gửi dữ liệu đi bằng fetch (chế độ no-cors để tránh lỗi trình duyệt)
+      await fetch(sheetUrl, {
+        method: 'POST',
+        mode: 'no-cors', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: customer,
+          note: customerNote,
+          total: totalAmount,
+          items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price }))
+        })
+      });
+
+      showNotification('✅ Đã lưu vào Google Sheets thành công!');
+      // Tùy chọn: Xóa đơn sau khi lưu? 
+      // setItems([]); 
+    } catch (error) {
+      console.error(error);
+      showNotification('Lỗi kết nối mạng!', 'error');
+    } finally {
+      setIsSavingSheet(false);
+    }
+  };
+
+  // --- CHỨC NĂNG 2: XUẤT ẢNH & GỬI ZALO ---
+  const handleZaloShare = async () => {
+    if (items.length === 0) return showNotification('Đơn hàng trống!', 'error');
+
+    setIsProcessingZalo(true);
     showNotification('Đang tạo ảnh hóa đơn...', 'info');
 
     try {
-      // 1. Đảm bảo thư viện html2canvas đã tải
-      if (!window.html2canvas) {
-        await loadHtml2Canvas();
-      }
+      if (!window.html2canvas) await loadHtml2Canvas();
 
-      // 2. Hiển thị phần hóa đơn ẩn để chụp
       const element = receiptRef.current;
       element.style.display = 'block';
 
-      // 3. Chụp ảnh
       const canvas = await window.html2canvas(element, {
-        scale: 3, // Tăng độ nét cho điện thoại
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
+        scale: 3, useCORS: true, backgroundColor: '#ffffff', logging: false,
       });
 
-      // 4. Ẩn lại hóa đơn
       element.style.display = 'none';
-
-      // 5. Chuyển đổi sang dữ liệu ảnh
       const imageUri = canvas.toDataURL('image/png');
 
-      // 6. Tạo link tải xuống tự động
       const link = document.createElement('a');
       link.href = imageUri;
-      link.download = `DonHang_${customer.replace(/\s+/g, '_')}_${Date.now()}.png`;
+      link.download = `DonHang_${customer.replace(/\s+/g, '_')}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      showNotification('✅ Ảnh đã lưu vào máy! Đang mở Zalo...');
+      showNotification('📸 Đã lưu ảnh! Đang mở Zalo...');
 
-      // 7. Thử mở ứng dụng Zalo sau 1.5 giây
       setTimeout(() => {
-        // Deep link để mở app Zalo
         window.location.href = 'zalo://';
-        
-        // Fallback: Nếu không mở được app sau 2s thì mở web (ít khi xảy ra trên mobile)
         setTimeout(() => {
-             if (document.hasFocus()) {
-                  console.log("App Zalo không phản hồi, hướng dẫn người dùng thủ công.");
-             }
-        }, 2000);
-
-      }, 1500);
+             if (document.hasFocus()) window.open("https://chat.zalo.me/", "_blank");
+        }, 1500);
+      }, 1000);
 
     } catch (error) {
-      console.error('Lỗi khi tạo ảnh:', error);
-      showNotification('Lỗi khi tạo ảnh. Vui lòng thử lại.', 'error');
+      showNotification('Lỗi tạo ảnh!', 'error');
     } finally {
-      setIsProcessing(false);
+      setIsProcessingZalo(false);
     }
   };
 
-    // Hàm tải thư viện chụp ảnh (nếu chưa có)
-    const loadHtml2Canvas = () => {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    };
+  const loadHtml2Canvas = () => {
+      return new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+      });
+  };
 
-
-  // --- GIAO DIỆN NGƯỜI DÙNG ---
+  // --- GIAO DIỆN ---
   return (
-    <div className="min-h-screen bg-slate-50 font-sans pb-32 select-none relative">
+    <div className="min-h-screen bg-slate-50 font-sans pb-40 select-none relative">
         
       {/* Thông báo nổi */}
       {notification && (
-        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-2 animate-bounce ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-600 text-white'}`}>
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[60] px-4 py-3 rounded-full shadow-lg flex items-center gap-2 animate-bounce whitespace-nowrap ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-600 text-white'}`}>
           {notification.type === 'error' ? <PackageX size={18}/> : <CheckCircle2 size={18}/>}
           <span className="text-sm font-medium">{notification.message}</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="bg-blue-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10">
-        <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <ShoppingCart size={24} /> App Bán Hàng
-          </h1>
-          <span className="text-xs bg-blue-500 px-2 py-1 rounded-full">Mobile POS</span>
+      <div className="bg-blue-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-20 flex justify-between items-center">
+        <div>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+                <ShoppingCart size={24} /> POS Pro
+            </h1>
+            <span className="text-[10px] opacity-80">Zalo & Google Sheets</span>
         </div>
+        <button onClick={() => setShowSettings(true)} className="p-2 bg-blue-500 rounded-full hover:bg-blue-400 transition-colors">
+            <Settings size={20} />
+        </button>
       </div>
 
+      {/* Modal Cài đặt */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl animate-in zoom-in-95">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-700 uppercase">Cài đặt kết nối</h3>
+                    <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-red-500"><X size={24}/></button>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 block">URL Google Apps Script</label>
+                    <textarea 
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs h-24 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Dán link bắt đầu bằng https://script.google.com/..."
+                        value={sheetUrl}
+                        onChange={(e) => {
+                            setSheetUrl(e.target.value);
+                            localStorage.setItem('POS_SHEET_URL', e.target.value);
+                        }}
+                    />
+                    <p className="text-[10px] text-slate-400 italic">Dán URL bạn đã tạo ở Google Sheets vào đây để kích hoạt tính năng lưu đơn.</p>
+                </div>
+                <button onClick={() => setShowSettings(false)} className="w-full mt-4 bg-blue-600 text-white font-bold py-3 rounded-xl">Đã xong</button>
+            </div>
+        </div>
+      )}
+
       <div className="max-w-md mx-auto p-4 space-y-4">
-        {/* Card 1: Thông tin khách hàng */}
+        {/* Card Khách hàng */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-          <h2 className="text-sm font-bold text-slate-500 uppercase mb-3">Thông tin khách hàng</h2>
           <div className="space-y-3">
             <input
-              type="text"
-              placeholder="Tên khách hàng (Ví dụ: Anh Tuấn)"
-              value={customer}
+              type="text" placeholder="Tên khách hàng" value={customer}
               onChange={(e) => setCustomer(e.target.value)}
-              className="w-full p-3 bg-slate-100 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+              className="w-full p-3 bg-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
             />
              <input
-              type="text"
-              placeholder="Ghi chú (SĐT, Địa chỉ...)"
-              value={customerNote}
+              type="text" placeholder="Ghi chú (SĐT/Địa chỉ)" value={customerNote}
               onChange={(e) => setCustomerNote(e.target.value)}
-              className="w-full p-3 bg-slate-100 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+              className="w-full p-3 bg-slate-100 rounded-xl text-sm text-slate-600 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
             />
           </div>
         </div>
 
-        {/* Card 2: Nhập hàng */}
+        {/* Card Nhập hàng */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-           <h2 className="text-sm font-bold text-slate-500 uppercase mb-3">Thêm sản phẩm</h2>
           <div className="space-y-3">
             <input
-              type="text"
-              placeholder="Tên sản phẩm..."
-              value={form.name}
+              type="text" placeholder="Tên sản phẩm..." value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full p-3 bg-slate-100 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+              className="w-full p-3 bg-slate-100 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
             />
             <div className="flex gap-3">
               <input
-                type="number"
-                placeholder="SL"
-                min="1"
-                value={form.qty}
+                type="number" placeholder="SL" min="1" value={form.qty}
                 onChange={(e) => setForm({ ...form, qty: e.target.value })}
-                className="w-1/3 p-3 bg-slate-100 rounded-xl font-bold text-center focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+                className="w-1/3 p-3 bg-slate-100 rounded-xl font-bold text-center focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
               />
               <input
-                type="number"
-                placeholder="Đơn giá (VNĐ)"
-                value={form.price}
+                type="number" placeholder="Đơn giá" value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
-                className="w-2/3 p-3 bg-slate-100 rounded-xl font-bold text-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+                className="w-2/3 p-3 bg-slate-100 rounded-xl font-bold text-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
               />
             </div>
-            <button
-              onClick={addItem}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md"
-            >
-              <Plus size={20} /> Thêm vào đơn
+            <button onClick={addItem} className="w-full bg-blue-600 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-md">
+              <Plus size={20} /> Thêm món
             </button>
           </div>
         </div>
 
-        {/* Card 3: Danh sách đơn hàng */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 min-h-[200px]">
+        {/* Card Danh sách */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 min-h-[150px]">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-sm font-bold text-slate-500 uppercase">Chi tiết đơn hàng</h2>
-            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-bold">{items.length} Món</span>
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đơn hàng ({items.length})</h2>
           </div>
-          
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-300">
-                <ShoppingCart size={48} className="mb-2 opacity-50"/>
-                <p className="text-sm italic">Chưa có sản phẩm nào</p>
-            </div>
+            <div className="text-center py-8 text-slate-300 italic text-sm">Chưa có món nào</div>
           ) : (
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            <div className="space-y-2">
               {items.map((item) => (
-                <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 animate-in slide-in-from-bottom-2">
+                <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <div>
-                    <h4 className="font-bold text-slate-800">{item.name}</h4>
-                    <div className="text-xs text-slate-500 font-medium mt-1">
-                      <span className="bg-white px-2 py-0.5 rounded border">{item.qty}</span> x {new Intl.NumberFormat('vi-VN').format(item.price)}
+                    <h4 className="font-bold text-slate-800 text-sm">{item.name}</h4>
+                    <div className="text-xs text-slate-500 font-medium">
+                      {item.qty} x {new Intl.NumberFormat('vi-VN').format(item.price)}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-bold text-blue-700">
-                      {new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}
-                    </span>
-                    <button onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-red-500 bg-white p-2 rounded-full active:bg-red-50 transition-colors">
-                      <Trash2 size={18} />
-                    </button>
+                    <span className="font-bold text-blue-700 text-sm">{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</span>
+                    <button onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-red-500 bg-white p-2 rounded-lg border border-slate-200"><Trash2 size={16}/></button>
                   </div>
                 </div>
               ))}
@@ -244,79 +263,74 @@ export default function App() {
         </div>
       </div>
 
-      {/* Thanh thanh toán cố định phía dưới */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] rounded-t-3xl z-20">
+      {/* Footer Thanh toán */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-[0_-5px_30px_rgba(0,0,0,0.1)] rounded-t-3xl z-40">
         <div className="max-w-md mx-auto">
             <div className="flex justify-between items-center mb-4 px-2">
-            <span className="text-sm font-bold text-slate-500 uppercase">Tổng thanh toán</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tổng tiền</span>
             <span className="text-2xl font-black text-blue-700">{formattedTotal}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl active:scale-95 transition-transform border-2 border-slate-200">
-                <Save size={20} /> Lưu đơn
+            {/* Nút Lưu Đơn (Google Sheets) */}
+            <button 
+                onClick={handleSaveToSheet}
+                disabled={isSavingSheet}
+                className={`flex items-center justify-center gap-2 font-bold py-3 rounded-2xl border-2 border-green-100 active:scale-95 transition-transform ${isSavingSheet ? 'bg-green-50 text-green-800' : 'bg-green-100 text-green-700'}`}
+            >
+                {isSavingSheet ? <Loader2 size={20} className="animate-spin"/> : <Save size={20} />} 
+                {isSavingSheet ? 'Đang lưu...' : 'Lưu Đơn'}
             </button>
+            
+            {/* Nút Gửi Zalo */}
             <button 
                 onClick={handleZaloShare}
-                disabled={isProcessing || items.length === 0}
-                className={`flex items-center justify-center gap-2 font-bold py-3 rounded-2xl shadow-lg active:scale-95 transition-all ${isProcessing ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0068ff] text-white'}`}
+                disabled={isProcessingZalo}
+                className={`flex items-center justify-center gap-2 font-bold py-3 rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all ${isProcessingZalo ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-[#0068ff] text-white'}`}
             >
-                {isProcessing ? <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div> : <Send size={20} />} 
-                {isProcessing ? 'Đang xử lý...' : 'Gửi Zalo Ngay'}
+                {isProcessingZalo ? <Loader2 size={20} className="animate-spin"/> : <Send size={20} />} 
+                {isProcessingZalo ? 'Tạo ảnh...' : 'Gửi Zalo'}
             </button>
             </div>
         </div>
       </div>
 
-
-      {/* --- MẪU HÓA ĐƠN ẨN (Dùng để chụp ảnh) --- */}
-      {/* Phần này bị ẩn đi khỏi giao diện chính, chỉ hiện lên trong tích tắc để html2canvas chụp lại */}
-      <div 
-        ref={receiptRef} 
-        style={{
-          display: 'none', // Ẩn mặc định
-          position: 'fixed', top: 0, left: 0, zIndex: -1, // Đưa ra khỏi màn hình
-          width: '500px', padding: '40px', backgroundColor: 'white', color: '#000', fontFamily: 'Arial, sans-serif'
-        }}
-      >
+      {/* MẪU HÓA ĐƠN ẨN (Để chụp ảnh) */}
+      <div ref={receiptRef} style={{ display: 'none', position: 'fixed', top: 0, left: 0, zIndex: -1, width: '500px', padding: '40px', backgroundColor: 'white', color: '#000', fontFamily: 'Arial, sans-serif' }}>
         <div style={{textAlign: 'center', borderBottom: '3px solid #000', paddingBottom: '15px', marginBottom: '20px'}}>
           <h1 style={{fontSize: '28px', fontWeight: '900', textTransform: 'uppercase', margin: 0}}>HÓA ĐƠN BÁN LẺ</h1>
           <p style={{fontSize: '14px', color: '#555', marginTop: '5px'}}>{new Date().toLocaleString('vi-VN')}</p>
         </div>
         <div style={{marginBottom: '20px'}}>
-          <p style={{margin: '5px 0', fontSize: '16px'}}><strong>Khách hàng:</strong> {customer}</p>
-          {customerNote && <p style={{margin: '5px 0', fontSize: '14px', fontStyle: 'italic', color: '#555'}}>Ghi chú: {customerNote}</p>}
+          <p style={{margin: '5px 0', fontSize: '16px'}}><strong>Khách:</strong> {customer}</p>
+          {customerNote && <p style={{margin: '5px 0', fontSize: '14px', fontStyle: 'italic'}}>Ghi chú: {customerNote}</p>}
         </div>
         <table style={{width: '100%', borderCollapse: 'collapse', marginBottom: '20px'}}>
           <thead>
             <tr style={{borderBottom: '2px solid #000', fontSize: '14px', textTransform: 'uppercase'}}>
-              <th style={{textAlign: 'left', padding: '10px 0'}}>Tên hàng</th>
-              <th style={{textAlign: 'center', padding: '10px'}}>SL</th>
-              <th style={{textAlign: 'right', padding: '10px 0'}}>Đơn giá</th>
-              <th style={{textAlign: 'right', padding: '10px 0'}}>Thành tiền</th>
+              <th style={{textAlign: 'left', padding: '10px 0'}}>Món</th>
+              <th style={{textAlign: 'center'}}>SL</th>
+              <th style={{textAlign: 'right'}}>Đ.Giá</th>
+              <th style={{textAlign: 'right'}}>Tổng</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item, index) => (
               <tr key={index} style={{borderBottom: '1px dotted #ccc'}}>
                 <td style={{padding: '12px 0', fontWeight: '500'}}>{item.name}</td>
-                <td style={{textAlign: 'center', padding: '12px'}}>{item.qty}</td>
-                <td style={{textAlign: 'right', padding: '12px 0'}}>{new Intl.NumberFormat('vi-VN').format(item.price)}</td>
-                <td style={{textAlign: 'right', padding: '12px 0', fontWeight: 'bold'}}>{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</td>
+                <td style={{textAlign: 'center'}}>{item.qty}</td>
+                <td style={{textAlign: 'right'}}>{new Intl.NumberFormat('vi-VN').format(item.price)}</td>
+                <td style={{textAlign: 'right', fontWeight: 'bold'}}>{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <div style={{textAlign: 'right', borderTop: '3px solid #000', paddingTop: '15px'}}>
-           <p style={{fontSize: '16px', fontWeight: 'bold', margin: 0}}>TỔNG CỘNG PHẢI THANH TOÁN:</p>
-           <p style={{fontSize: '32px', fontWeight: '900', color: '#0068ff', margin: '5px 0 0 0'}}>{formattedTotal}</p>
+           <p style={{fontSize: '32px', fontWeight: '900', color: '#0068ff', margin: 0}}>{formattedTotal}</p>
         </div>
-        <div style={{textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#777', fontStyle: 'italic'}}>
-            <p>Cảm ơn quý khách đã ủng hộ!</p>
-        </div>
+        <div style={{textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#999'}}>Cảm ơn quý khách!</div>
       </div>
 
     </div>
   );
 }
-
 
