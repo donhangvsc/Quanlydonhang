@@ -302,4 +302,73 @@
                     </div>
 
                     {/* Footer */}
-                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white p-5
+                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[32px] z-40 border-t border-slate-50">
+                        <div className="flex justify-between items-end mb-4 px-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng tiền</span>
+                            <span className="text-3xl font-black text-blue-700 leading-none">{formattedTotal}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={handleSaveToSheet}
+                                disabled={isSavingSheet}
+                                className={`flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl border-2 active-scale transition-transform ${isSavingSheet ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : 'bg-white text-emerald-600 border-emerald-100'}`}
+                            >
+                                {isSavingSheet ? <Icons.Loader /> : <Icons.Save />} 
+                                <span className="text-xs uppercase font-black">{isSavingSheet ? 'Đang lưu...' : 'Lưu Sheets'}</span>
+                            </button>
+                            
+                            <button 
+                                onClick={handleZaloShare}
+                                disabled={isProcessingZalo}
+                                className={`flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl shadow-xl shadow-blue-200 active-scale transition-all ${isProcessingZalo ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-[#0068ff] text-white'}`}
+                            >
+                                {isProcessingZalo ? <Icons.Loader /> : <Icons.Send />} 
+                                <span className="text-xs uppercase font-black">{isProcessingZalo ? 'Tạo ảnh...' : 'Gửi Zalo'}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* INVOICE HIDDEN */}
+                    <div ref={receiptRef} style={{ display: 'none', position: 'fixed', top: 0, left: 0, zIndex: -1, width: '500px', padding: '40px', backgroundColor: 'white', color: '#000', fontFamily: 'Arial, sans-serif' }}>
+                        <div style={{textAlign: 'center', borderBottom: '3px solid #000', paddingBottom: '15px', marginBottom: '20px'}}>
+                            <h1 style={{fontSize: '28px', fontWeight: '900', textTransform: 'uppercase', margin: 0}}>HÓA ĐƠN BÁN LẺ</h1>
+                            <p style={{fontSize: '14px', color: '#555', marginTop: '5px'}}>{new Date().toLocaleString('vi-VN')}</p>
+                        </div>
+                        <div style={{marginBottom: '20px'}}>
+                            <p style={{margin: '5px 0', fontSize: '16px'}}><strong>Khách:</strong> {customer}</p>
+                            {customerNote && <p style={{margin: '5px 0', fontSize: '14px', fontStyle: 'italic'}}>Ghi chú: {customerNote}</p>}
+                        </div>
+                        <table style={{width: '100%', borderCollapse: 'collapse', marginBottom: '20px'}}>
+                            <thead>
+                                <tr style={{borderBottom: '2px solid #000', fontSize: '14px', textTransform: 'uppercase'}}>
+                                    <th style={{textAlign: 'left', padding: '10px 0'}}>Món</th>
+                                    <th style={{textAlign: 'center'}}>SL</th>
+                                    <th style={{textAlign: 'right'}}>Đ.Giá</th>
+                                    <th style={{textAlign: 'right'}}>Tổng</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((item, index) => (
+                                    <tr key={index} style={{borderBottom: '1px dotted #ccc'}}>
+                                        <td style={{padding: '12px 0', fontWeight: '500'}}>{item.name}</td>
+                                        <td style={{textAlign: 'center'}}>{item.qty}</td>
+                                        <td style={{textAlign: 'right'}}>{new Intl.NumberFormat('vi-VN').format(item.price)}</td>
+                                        <td style={{textAlign: 'right', fontWeight: 'bold'}}>{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div style={{textAlign: 'right', borderTop: '3px solid #000', paddingTop: '15px'}}>
+                            <p style={{fontSize: '32px', fontWeight: '900', color: '#0068ff', margin: 0}}>{formattedTotal}</p>
+                        </div>
+                        <div style={{textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#999'}}>Cảm ơn quý khách!</div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
