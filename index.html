@@ -2,42 +2,52 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>App Bán Hàng Pro - Zalo & Google Sheets</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e40af">
     
-    <!-- Tailwind CSS -->
+    <title>Khánh Cường Cát Tường - POS</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel để dịch JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Thư viện chụp ảnh màn hình -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <!-- Lucide Icons (Dạng UMD cho trình duyệt) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
     <style>
+        :root {
+            --primary-blue: #1e40af;
+            --secondary-blue: #3b82f6;
+            --bg-gradient: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f8fafc;
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-gradient);
+            user-select: none;
             -webkit-tap-highlight-color: transparent;
+            color: #1e293b;
         }
-        /* Ẩn thanh cuộn nhưng vẫn cuộn được */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.1);
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .btn-fancy {
+            background: linear-gradient(to right, #1e40af, #3b82f6);
+            transition: all 0.2s ease;
         }
-        .active-scale:active {
-            transform: scale(0.95);
+        .btn-fancy:active { transform: scale(0.96); brightness: 1.1; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        input:focus { border-color: #3b82f6 !important; }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
+        .animate-up { animation: slideUp 0.4s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -46,329 +56,235 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         
-        // Icon Components đơn giản (SVG) để đảm bảo chạy ổn định không cần import phức tạp
         const Icons = {
-            ShoppingCart: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>,
-            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
-            Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
-            Send: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
-            Save: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
-            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-            X: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
-            CheckCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
-            PackageX: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/><path d="m17 13 5 5m-5 0 5-5"/></svg>,
-            Loader: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Plus: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
+            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>,
+            Send: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
+            Save: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>,
+            Settings: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         };
 
         function App() {
-            // --- STATE ---
             const [items, setItems] = useState([]);
             const [customer, setCustomer] = useState('Khách lẻ');
             const [customerNote, setCustomerNote] = useState('');
-            const [form, setForm] = useState({ name: '', qty: 1, price: '' });
-            const [sheetUrl, setSheetUrl] = useState('');
-            
-            const [isProcessingZalo, setIsProcessingZalo] = useState(false);
-            const [isSavingSheet, setIsSavingSheet] = useState(false);
-            const [notification, setNotification] = useState(null);
+            const [form, setForm] = useState({ name: '', qty: 1, price: '', promo: '' });
+            const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('POS_SHEET_URL_KIND') || '');
             const [showSettings, setShowSettings] = useState(false);
-            
+            const [isLoading, setIsLoading] = useState(false);
+            const [notif, setNotif] = useState(null);
             const receiptRef = useRef(null);
 
-            // Load URL và items từ LocalStorage khi mở app
-            useEffect(() => {
-                const savedUrl = localStorage.getItem('POS_SHEET_URL');
-                if (savedUrl) setSheetUrl(savedUrl);
-            }, []);
+            const showNotif = (msg) => {
+                setNotif(msg);
+                setTimeout(() => setNotif(null), 3000);
+            }
 
-            // Thông báo
-            const showNotification = (message, type = 'success') => {
-                setNotification({ message, type });
-                setTimeout(() => setNotification(null), 3000);
-            };
-
-            // Logic bán hàng
             const addItem = () => {
-                if (!form.name || !form.price) {
-                    showNotification('Thiếu tên hoặc giá!', 'error');
-                    return;
-                }
-                const newItem = {
-                    id: Date.now(),
-                    name: form.name,
-                    qty: Number(form.qty),
-                    price: Number(form.price),
-                };
-                setItems([...items, newItem]);
-                setForm({ name: '', qty: 1, price: '' });
-                if (navigator.vibrate) navigator.vibrate(50);
+                if (!form.name || !form.price) return;
+                setItems([{ id: Date.now(), ...form, price: Number(form.price), qty: Number(form.qty) }, ...items]);
+                setForm({ name: '', qty: 1, price: '', promo: '' });
+                if (window.navigator.vibrate) window.navigator.vibrate(50);
             };
 
-            const removeItem = (id) => setItems(items.filter(item => item.id !== id));
-            const totalAmount = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-            const formattedTotal = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount);
+            const total = items.reduce((s, i) => s + (i.price * i.qty), 0);
 
-            // --- LƯU GOOGLE SHEETS ---
-            const handleSaveToSheet = async () => {
-                if (items.length === 0) return showNotification('Đơn hàng trống!', 'error');
-                if (!sheetUrl) {
-                    setShowSettings(true);
-                    return showNotification('Cần nhập URL Google Sheets!', 'error');
-                }
+            const handleZalo = async () => {
+                if (items.length === 0) return;
+                setIsLoading(true);
+                try {
+                    const canvas = await html2canvas(receiptRef.current, { scale: 3, backgroundColor: '#fff' });
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                    const file = new File([blob], `Khánh_Cường_Don_Hang.png`, { type: 'image/png' });
 
-                setIsSavingSheet(true);
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: 'Gửi hóa đơn Khánh Cường Cát Tường' });
+                    } else {
+                        const link = document.createElement('a');
+                        link.href = canvas.toDataURL();
+                        link.download = `HoaDon_KhanhCuong.png`;
+                        link.click();
+                        showNotif("Đã lưu ảnh! Hãy mở Zalo gửi cho khách.");
+                        setTimeout(() => window.location.href = "zalo://", 1000);
+                    }
+                } catch (e) { showNotif("Lỗi khi tạo ảnh!"); }
+                setIsLoading(false);
+            };
+
+            const saveSheet = async () => {
+                if (!sheetUrl) return setShowSettings(true);
+                setIsLoading(true);
                 try {
                     await fetch(sheetUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            customer: customer,
-                            note: customerNote,
-                            total: totalAmount,
-                            items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price }))
-                        })
+                        method: 'POST', mode: 'no-cors',
+                        body: JSON.stringify({ customer, note: customerNote, total, items, brand: "Khánh Cường Cát Tường" })
                     });
-                    showNotification('✅ Đã lưu vào Google Sheets!');
-                } catch (error) {
-                    showNotification('Lỗi kết nối mạng!', 'error');
-                } finally {
-                    setIsSavingSheet(false);
-                }
-            };
-
-            // --- XUẤT ẢNH & GỬI ZALO ---
-            const handleZaloShare = async () => {
-                if (items.length === 0) return showNotification('Đơn hàng trống!', 'error');
-                setIsProcessingZalo(true);
-                showNotification('Đang tạo ảnh hóa đơn...', 'info');
-
-                try {
-                    const element = receiptRef.current;
-                    element.style.display = 'block';
-                    
-                    const canvas = await window.html2canvas(element, {
-                        scale: 3, useCORS: true, backgroundColor: '#ffffff', logging: false,
-                    });
-                    
-                    element.style.display = 'none';
-                    const imageUri = canvas.toDataURL('image/png');
-
-                    // Tải ảnh về
-                    const link = document.createElement('a');
-                    link.href = imageUri;
-                    link.download = `DonHang_${customer.replace(/\s+/g, '_')}.png`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-
-                    showNotification('📸 Đã lưu ảnh! Đang mở Zalo...');
-                    
-                    setTimeout(() => {
-                        window.location.href = 'zalo://';
-                        setTimeout(() => {
-                            if (document.hasFocus()) window.open("https://chat.zalo.me/", "_blank");
-                        }, 1500);
-                    }, 1000);
-
-                } catch (error) {
-                    showNotification('Lỗi tạo ảnh!', 'error');
-                } finally {
-                    setIsProcessingZalo(false);
-                }
+                    showNotif("✅ Đã lưu đơn hàng vào Google Sheets!");
+                } catch (e) { showNotif("Lỗi kết nối bảng tính!"); }
+                setIsLoading(false);
             };
 
             return (
-                <div className="min-h-screen bg-slate-50 font-sans pb-40 select-none relative">
+                <div className="flex flex-col h-screen max-w-md mx-auto overflow-hidden shadow-2xl relative">
                     
-                    {/* Notification Toast */}
-                    {notification && (
-                        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[60] px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounce whitespace-nowrap ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-600 text-white'}`}>
-                            {notification.type === 'error' ? <Icons.PackageX /> : <Icons.CheckCircle />}
-                            <span className="text-sm font-bold">{notification.message}</span>
+                    {/* Toast */}
+                    {notif && (
+                        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-blue-900/90 text-white text-xs font-bold px-8 py-3 rounded-full shadow-2xl backdrop-blur-md animate-bounce border border-blue-400/30">
+                            {notif}
                         </div>
                     )}
 
                     {/* Header */}
-                    <div className="bg-blue-700 text-white p-5 rounded-b-[2rem] shadow-xl sticky top-0 z-20 flex justify-between items-center">
-                        <div>
-                            <h1 className="text-xl font-black flex items-center gap-2 uppercase italic tracking-tighter">
-                                <Icons.ShoppingCart /> POS Pro
-                            </h1>
-                            <span className="text-[10px] font-bold opacity-70 bg-blue-800 px-2 py-0.5 rounded-full">Zalo & Sheets Integration</span>
+                    <div className="safe-top bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white px-6 pb-8 rounded-b-[3rem] shadow-2xl flex justify-between items-end h-36">
+                        <div className="animate-up">
+                            <h1 className="text-2xl font-black tracking-tighter uppercase italic leading-none">Khánh Cường</h1>
+                            <p className="text-sm font-light tracking-[0.2em] opacity-80 uppercase">Cát Tường</p>
                         </div>
-                        <button onClick={() => setShowSettings(true)} className="p-2 bg-blue-600 rounded-full hover:bg-blue-500 transition-colors shadow-lg active-scale">
+                        <button onClick={() => setShowSettings(true)} className="p-3 bg-white/10 rounded-2xl btn-fancy border border-white/20 shadow-lg">
                             <Icons.Settings />
                         </button>
                     </div>
 
-                    {/* Settings Modal */}
-                    {showSettings && (
-                        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-                            <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-slate-800 uppercase tracking-wide">Cài đặt kết nối</h3>
-                                    <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-red-500"><Icons.X /></button>
-                                </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">URL Google Apps Script</label>
-                                        <textarea 
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs h-24 focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                                            placeholder="https://script.google.com/macros/s/..."
-                                            value={sheetUrl}
-                                            onChange={(e) => {
-                                                setSheetUrl(e.target.value);
-                                                localStorage.setItem('POS_SHEET_URL', e.target.value);
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowSettings(false)} className="w-full mt-5 bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg active-scale">Lưu cài đặt</button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="max-w-md mx-auto p-4 space-y-4">
-                        {/* Khách hàng */}
-                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                            <div className="space-y-3">
-                                <input
-                                    type="text" placeholder="Tên khách hàng" value={customer}
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5 no-scrollbar">
+                        
+                        {/* Customer Info */}
+                        <div className="glass-card p-5 rounded-[2rem] space-y-3 animate-up" style={{animationDelay: '0.1s'}}>
+                            <div className="relative">
+                                <label className="text-[10px] font-black text-blue-800/40 uppercase absolute -top-2 left-3 bg-white px-2">Khách hàng</label>
+                                <input 
+                                    className="w-full text-lg font-black text-blue-900 bg-transparent border-2 border-blue-50 p-3 rounded-2xl focus:border-blue-300 outline-none transition-all"
+                                    value={customer}
                                     onChange={(e) => setCustomer(e.target.value)}
-                                    className="w-full p-3 bg-slate-50 rounded-xl font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
                                 />
-                                <input
-                                    type="text" placeholder="Ghi chú (SĐT/Địa chỉ)" value={customerNote}
+                            </div>
+                            <div className="relative">
+                                <label className="text-[10px] font-black text-blue-800/40 uppercase absolute -top-2 left-3 bg-white px-2">Ghi chú</label>
+                                <input 
+                                    className="w-full text-xs text-slate-500 bg-transparent border border-blue-50 p-3 rounded-xl italic focus:border-blue-200 outline-none"
+                                    value={customerNote}
                                     onChange={(e) => setCustomerNote(e.target.value)}
-                                    className="w-full p-3 bg-slate-50 rounded-xl text-sm text-slate-600 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+                                    placeholder="SĐT, địa chỉ hoặc yêu cầu riêng..."
                                 />
                             </div>
                         </div>
 
-                        {/* Nhập hàng */}
-                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-                            <div className="space-y-3">
-                                <input
-                                    type="text" placeholder="Tên sản phẩm..." value={form.name}
-                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                    className="w-full p-3 bg-slate-50 rounded-xl font-medium focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
-                                />
-                                <div className="flex gap-3">
-                                    <input
-                                        type="number" placeholder="SL" min="1" value={form.qty}
-                                        onChange={(e) => setForm({ ...form, qty: e.target.value })}
-                                        className="w-1/3 p-3 bg-slate-50 rounded-xl font-bold text-center focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
-                                    />
-                                    <input
-                                        type="number" placeholder="Đơn giá" value={form.price}
-                                        onChange={(e) => setForm({ ...form, price: e.target.value })}
-                                        className="w-2/3 p-3 bg-slate-50 rounded-xl font-bold text-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-400 outline-none"
+                        {/* Product Input */}
+                        <div className="glass-card p-5 rounded-[2rem] space-y-4 animate-up" style={{animationDelay: '0.2s'}}>
+                            <input 
+                                className="w-full p-4 bg-blue-50/50 rounded-2xl text-sm font-bold border border-transparent focus:bg-white focus:shadow-inner outline-none transition-all"
+                                placeholder="Tên sản phẩm..."
+                                value={form.name}
+                                onChange={(e) => setForm({...form, name: e.target.value})}
+                            />
+                            <input 
+                                className="w-full p-3 bg-blue-50/30 rounded-xl text-[11px] italic border border-transparent focus:bg-white outline-none"
+                                placeholder="Chương trình khuyến mãi / Quà tặng..."
+                                value={form.promo}
+                                onChange={(e) => setForm({...form, promo: e.target.value})}
+                            />
+                            <div className="flex gap-3">
+                                <div className="w-24">
+                                    <input 
+                                        type="number" className="w-full p-4 bg-blue-50/50 rounded-2xl text-center font-black text-blue-900 outline-none"
+                                        value={form.qty}
+                                        onChange={(e) => setForm({...form, qty: e.target.value})}
+                                        placeholder="SL"
                                     />
                                 </div>
-                                <button onClick={addItem} className="w-full bg-slate-800 text-white font-bold p-3 rounded-xl flex items-center justify-center gap-2 active-scale shadow-lg">
-                                    <Icons.Plus /> Thêm món
+                                <div className="flex-1">
+                                    <input 
+                                        type="number" className="w-full p-4 bg-blue-50/50 rounded-2xl font-black text-blue-700 outline-none"
+                                        value={form.price}
+                                        onChange={(e) => setForm({...form, price: e.target.value})}
+                                        placeholder="Đơn giá"
+                                    />
+                                </div>
+                                <button onClick={addItem} className="btn-fancy text-white px-6 rounded-2xl shadow-xl shadow-blue-200 flex items-center justify-center">
+                                    <Icons.Plus />
                                 </button>
                             </div>
                         </div>
 
-                        {/* Danh sách */}
-                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 min-h-[150px]">
-                            <div className="flex justify-between items-center mb-3">
-                                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn hàng hiện tại</h2>
-                                <span className="bg-slate-100 px-2 py-1 rounded text-[10px] font-bold text-slate-500">{items.length} món</span>
-                            </div>
+                        {/* Items List */}
+                        <div className="space-y-3 pb-24">
+                            <h3 className="text-[10px] font-black text-blue-900/30 uppercase tracking-[0.3em] ml-2">Danh sách đơn hàng</h3>
                             {items.length === 0 ? (
-                                <div className="text-center py-8 text-slate-300 italic text-sm">Chưa có món nào</div>
+                                <div className="text-center py-10 opacity-20 grayscale font-black text-sm uppercase italic">Đơn hàng trống</div>
                             ) : (
-                                <div className="space-y-2">
-                                    {items.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-2xl border border-slate-100 animate-[fadeIn_0.3s_ease-out]">
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 text-sm">{item.name}</h4>
-                                                <div className="text-[10px] text-slate-500 font-bold">
-                                                    {item.qty} x {new Intl.NumberFormat('vi-VN').format(item.price)}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-blue-700 text-sm">{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</span>
-                                                <button onClick={() => removeItem(item.id)} className="text-slate-400 hover:text-red-500 bg-white p-2 rounded-xl border border-slate-200 active-scale"><Icons.Trash2 /></button>
-                                            </div>
+                                items.map(item => (
+                                    <div key={item.id} className="glass-card p-4 rounded-3xl flex justify-between items-start animate-up border-l-4 border-l-blue-600">
+                                        <div className="flex-1">
+                                            <h4 className="font-black text-blue-900 text-sm leading-tight uppercase">{item.name}</h4>
+                                            {item.promo && <p className="text-[10px] text-blue-500 font-bold italic mt-1 leading-tight">✦ {item.promo}</p>}
+                                            <p className="text-[10px] font-black text-slate-400 mt-2 bg-slate-100 w-fit px-2 py-1 rounded-lg">
+                                                {item.qty} x {item.price.toLocaleString()}đ
+                                            </p>
                                         </div>
-                                    ))}
-                                </div>
+                                        <div className="flex flex-col items-end gap-3 ml-2">
+                                            <span className="font-black text-blue-700 text-base italic leading-none">{(item.qty * item.price).toLocaleString()}đ</span>
+                                            <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="text-slate-200 active:text-red-500 transition-colors">
+                                                <Icons.Trash />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
                             )}
                         </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] rounded-t-[32px] z-40 border-t border-slate-50">
-                        <div className="flex justify-between items-end mb-4 px-2">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng tiền</span>
-                            <span className="text-3xl font-black text-blue-700 leading-none">{formattedTotal}</span>
+                    {/* Bottom Payment Bar */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl px-6 pt-6 pb-10 border-t border-blue-50 rounded-t-[3rem] shadow-[0_-20px_50px_rgba(30,64,175,0.1)]">
+                        <div className="flex justify-between items-center mb-6 px-2">
+                            <div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Thành tiền</span>
+                                <span className="text-3xl font-black text-blue-900 italic">{total.toLocaleString()}<small className="text-sm ml-1 not-italic">đ</small></span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] font-black text-blue-400 uppercase block">{items.length} món</span>
+                                <span className="text-[10px] font-bold text-slate-300 uppercase">Khánh Cường POS</span>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button 
-                                onClick={handleSaveToSheet}
-                                disabled={isSavingSheet}
-                                className={`flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl border-2 active-scale transition-transform ${isSavingSheet ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : 'bg-white text-emerald-600 border-emerald-100'}`}
-                            >
-                                {isSavingSheet ? <Icons.Loader /> : <Icons.Save />} 
-                                <span className="text-xs uppercase font-black">{isSavingSheet ? 'Đang lưu...' : 'Lưu Sheets'}</span>
+                        <div className="grid grid-cols-2 gap-4">
+                            <button onClick={saveSheet} className="flex items-center justify-center gap-2 bg-blue-50 text-blue-800 font-black py-4 rounded-2xl btn-active border border-blue-100">
+                                <Icons.Save /> <span className="text-[11px] uppercase tracking-wider">Lưu Bảng Tính</span>
                             </button>
+                            <button onClick={handleZalo} className="flex items-center justify-center gap-2 btn-fancy text-white font-black py-4 rounded-2xl shadow-2xl shadow-blue-300">
+                                <Icons.Send /> <span className="text-[11px] uppercase tracking-wider">Gửi Zalo</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Settings Modal */}
+                    {showSettings && (
+                        <div className="fixed inset-0 z-[120] bg-blue-950/40 backdrop-blur-md flex items-end">
+                            <div className="bg-white w-full p-8 rounded-t-[3rem] shadow-2xl animate-up">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-black text-blue-900 uppercase italic">Cấu hình kết nối</h3>
+                                    <button onClick={() => setShowSettings(false)} className="rotate-45 p-2 bg-slate-100 rounded-full"><Icons.Plus/></button>
+                                </div>
+                                <p className="text-[10px] font-bold text-slate-400 mb-2 uppercase">Google Apps Script URL</p>
+                                <textarea 
+                                    className="w-full p-4 bg-slate-50 rounded-2xl text-[10px] h-28 outline-none border border-slate-100 focus:ring-2 focus:ring-blue-500 font-mono"
+                                    value={sheetUrl}
+                                    onChange={(e) => { setSheetUrl(e.target.value); localStorage.setItem('POS_SHEET_URL_KIND', e.target.value); }}
+                                    placeholder="https://script.google.com/macros/s/..."
+                                />
+                                <button onClick={() => setShowSettings(false)} className="w-full mt-6 btn-fancy text-white font-black py-4 rounded-2xl shadow-xl">ÁP DỤNG CÀI ĐẶT</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* RECEIPT FOR SNAPSHOT */}
+                    <div className="fixed -left-[3000px] top-0">
+                        <div ref={receiptRef} className="w-[500px] p-12 bg-white text-slate-900 font-sans border-[20px] border-blue-900">
+                            <div className="text-center mb-10">
+                                <h1 className="text-4xl font-black text-blue-900 italic uppercase mb-1">Khánh Cường</h1>
+                                <h2 className="text-xl font-light tracking-[0.5em] text-blue-700 uppercase mb-4">Cát Tường</h2>
+                                <div className="h-1 w-20 bg-blue-900 mx-auto mb-4"></div>
+                                <p className="text-sm opacity-50 italic uppercase font-bold tracking-widest">{new Date().toLocaleString('vi-VN')}</p>
+                            </div>
                             
-                            <button 
-                                onClick={handleZaloShare}
-                                disabled={isProcessingZalo}
-                                className={`flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl shadow-xl shadow-blue-200 active-scale transition-all ${isProcessingZalo ? 'bg-slate-400 text-white cursor-not-allowed' : 'bg-[#0068ff] text-white'}`}
-                            >
-                                {isProcessingZalo ? <Icons.Loader /> : <Icons.Send />} 
-                                <span className="text-xs uppercase font-black">{isProcessingZalo ? 'Tạo ảnh...' : 'Gửi Zalo'}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* INVOICE HIDDEN */}
-                    <div ref={receiptRef} style={{ display: 'none', position: 'fixed', top: 0, left: 0, zIndex: -1, width: '500px', padding: '40px', backgroundColor: 'white', color: '#000', fontFamily: 'Arial, sans-serif' }}>
-                        <div style={{textAlign: 'center', borderBottom: '3px solid #000', paddingBottom: '15px', marginBottom: '20px'}}>
-                            <h1 style={{fontSize: '28px', fontWeight: '900', textTransform: 'uppercase', margin: 0}}>HÓA ĐƠN BÁN LẺ</h1>
-                            <p style={{fontSize: '14px', color: '#555', marginTop: '5px'}}>{new Date().toLocaleString('vi-VN')}</p>
-                        </div>
-                        <div style={{marginBottom: '20px'}}>
-                            <p style={{margin: '5px 0', fontSize: '16px'}}><strong>Khách:</strong> {customer}</p>
-                            {customerNote && <p style={{margin: '5px 0', fontSize: '14px', fontStyle: 'italic'}}>Ghi chú: {customerNote}</p>}
-                        </div>
-                        <table style={{width: '100%', borderCollapse: 'collapse', marginBottom: '20px'}}>
-                            <thead>
-                                <tr style={{borderBottom: '2px solid #000', fontSize: '14px', textTransform: 'uppercase'}}>
-                                    <th style={{textAlign: 'left', padding: '10px 0'}}>Món</th>
-                                    <th style={{textAlign: 'center'}}>SL</th>
-                                    <th style={{textAlign: 'right'}}>Đ.Giá</th>
-                                    <th style={{textAlign: 'right'}}>Tổng</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((item, index) => (
-                                    <tr key={index} style={{borderBottom: '1px dotted #ccc'}}>
-                                        <td style={{padding: '12px 0', fontWeight: '500'}}>{item.name}</td>
-                                        <td style={{textAlign: 'center'}}>{item.qty}</td>
-                                        <td style={{textAlign: 'right'}}>{new Intl.NumberFormat('vi-VN').format(item.price)}</td>
-                                        <td style={{textAlign: 'right', fontWeight: 'bold'}}>{new Intl.NumberFormat('vi-VN').format(item.qty * item.price)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        <div style={{textAlign: 'right', borderTop: '3px solid #000', paddingTop: '15px'}}>
-                            <p style={{fontSize: '32px', fontWeight: '900', color: '#0068ff', margin: 0}}>{formattedTotal}</p>
-                        </div>
-                        <div style={{textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#999'}}>Cảm ơn quý khách!</div>
-                    </div>
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                            <div className="mb-8 space-y-2 border-l-4 border-blue-900 pl-4 py-2 bg-blue-50/30">
+                                <p className="text-xl"><strong>Khách hàng:</strong> <span className="uppercase font-black text-blue-900">{customer}</span></p>
+                                {customerNote && <p className="text-sm italic 
