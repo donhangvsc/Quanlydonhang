@@ -3,237 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Khánh Cường">
-    <meta name="theme-color" content="#2563eb">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%232563eb'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='900' font-style='italic' font-size='80' fill='white'>KC</text><text x='50%25' y='80%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='700' font-size='18' fill='rgba(255,255,255,0.8)'>KHANH CUONG</text></svg>">
-    <title>Khánh Cường - Cát Tường</title>
+    <title> KHÁNH CƯỜNG - CÁT TƯỜNG</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
-        :root { --primary-blue: #2563eb; --dark-blue: #1e40af; --bg-gradient: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); }
-        body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-gradient); user-select: none; -webkit-tap-highlight-color: transparent; color: #0f172a; margin: 0; }
-        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(186, 230, 253, 0.5); box-shadow: 0 8px 20px -5px rgba(37, 99, 235, 0.1); }
-        .safe-top { padding-top: env(safe-area-inset-top); }
-        .btn-blue { background: linear-gradient(to right, #3b82f6, #1d4ed8); transition: all 0.2s ease; }
-        .btn-blue:active { transform: scale(0.96); filter: brightness(1.1); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif; background: #f0f9ff; overscroll-behavior-y: contain; }
+        .glass-card { background: white; border-radius: 24px; box-shadow: 0 4px 20px rgba(14, 165, 233, 0.08); border: 1px solid rgba(224, 242, 254, 0.6); }
+        .active-tab { color: #0284c7; font-weight: 800; position: relative; }
+        .active-tab::after { content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #0284c7; border-radius: 50%; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-up { animation: slideUp 0.4s ease-out forwards; }
+        .btn-press:active { transform: scale(0.96); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-up { animation: slideUp 0.3s ease-out forwards; }
+        .receipt-container { background: white; color: black; font-family: 'Courier New', Courier, monospace; line-height: 1.2; }
     </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const Icons = {
-            Plus: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
-            Trash: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>,
-            Send: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>,
-            Save: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>,
-            Settings: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1-2-2 2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        };
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Icons
+        const HomeIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>;
+        const ChartIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>;
+        const SyncIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>;
+        const TrashIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+        const PlusIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
 
         function App() {
-            const [items, setItems] = useState([]);
+            const [view, setView] = useState('pos');
+            const [cart, setCart] = useState([]);
             const [customer, setCustomer] = useState('Khách lẻ');
-            const [customerNote, setCustomerNote] = useState('');
-            const [form, setForm] = useState({ name: '', qty: 1, price: '', promo: '' });
-            const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('POS_SHEET_KC') || '');
-            const [showSettings, setShowSettings] = useState(false);
-            const [notif, setNotif] = useState(null);
+            const [orderNote, setOrderNote] = useState('');
+            const [searchProd, setSearchProd] = useState('');
+            const [searchCust, setSearchCust] = useState('');
+            const [selectingItem, setSelectingItem] = useState(null);
+            const [inputQty, setInputQty] = useState(1);
+            const [inputNote, setInputNote] = useState('');
+            const [showBill, setShowBill] = useState(false);
+            const [billImg, setBillImg] = useState(null);
             const receiptRef = useRef(null);
 
-            const showNotif = (msg) => { setNotif(msg); setTimeout(() => setNotif(null), 3000); }
+            // Modals Thêm mới
+            const [showAddCust, setShowAddCust] = useState(false);
+            const [showAddProd, setShowAddProd] = useState(false);
+            const [newCust, setNewCust] = useState({ name: '', note: '' });
+            const [newProd, setNewProd] = useState({ name: '', price: '' });
 
-            const addItem = () => {
-                if (!form.name || !form.price) return;
-                
-                let originalPrice = Number(form.price);
-                let finalPrice = originalPrice;
-                let discountText = "";
+            // Cloud Data
+            const [cloudData, setCloudData] = useState({ products: [], customers: [], sales: [] });
+            const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('NL_POS_URL') || '');
+            const [loading, setLoading] = useState(false);
+            
+            // Report State
+            const [reportFilter, setReportFilter] = useState('today');
+            const [customDate, setCustomDate] = useState({ start: '', end: '' });
 
-                if (form.promo.includes('%')) {
-                    const match = form.promo.match(/(\d+(?:\.\d+)?)%/);
-                    if (match) {
-                        const percent = parseFloat(match[1]);
-                        finalPrice = originalPrice * (1 - percent / 100);
-                        discountText = `(Giảm ${percent}%)`;
-                    }
+            const fetchData = async () => {
+                if (!sheetUrl) return;
+                setLoading(true);
+                try {
+                    const res = await fetch(`${sheetUrl}?action=getData&_t=${Date.now()}`);
+                    const data = await res.json();
+                    setCloudData(data);
+                } catch (e) { console.error("Lỗi kết nối"); }
+                setLoading(false);
+            };
+
+            useEffect(() => { if (sheetUrl) fetchData(); }, []);
+
+            // Logic thêm mới Khách hàng / Sản phẩm
+            const handleAddNew = async (type) => {
+                if (!sheetUrl) return;
+                setLoading(true);
+                const data = type === 'cust' ? { action: 'addCustomer', ...newCust } : { action: 'addProduct', ...newProd };
+                try {
+                    await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
+                    setShowAddCust(false); setShowAddProd(false);
+                    setNewCust({ name: '', note: '' }); setNewProd({ name: '', price: '' });
+                    fetchData(); // Tải lại dữ liệu
+                } catch (e) { alert("Lỗi khi thêm mới!"); }
+                setLoading(false);
+            };
+
+            // Logic tính Chiết khấu thông minh
+            const getPriceInfo = (price, note) => {
+                const match = note.match(/(\d+)%/);
+                if (match) {
+                    const percent = parseInt(match[1]);
+                    return { finalPrice: price - (price * percent / 100), discountPercent: percent };
                 }
-
-                const newItem = {
-                    id: Date.now(),
-                    name: form.name,
-                    qty: Number(form.qty),
-                    originalPrice: originalPrice,
-                    price: finalPrice,
-                    promo: form.promo,
-                    discountText: discountText
-                };
-
-                setItems([newItem, ...items]);
-                setForm({ name: '', qty: 1, price: '', promo: '' });
-                if (window.navigator.vibrate) window.navigator.vibrate(50);
+                return { finalPrice: price, discountPercent: 0 };
             };
 
-            const total = items.reduce((s, i) => s + (i.price * i.qty), 0);
+            const handleAddToCart = () => {
+                const { finalPrice, discountPercent } = getPriceInfo(selectingItem.price, inputNote);
+                setCart([...cart, { 
+                    ...selectingItem, 
+                    qty: Number(inputQty) || 1, 
+                    note: inputNote, 
+                    appliedPrice: finalPrice, 
+                    discountPercent, 
+                    id: Date.now() 
+                }]);
+                setSelectingItem(null); setInputQty(1); setInputNote('');
+            };
 
-            const handleZalo = async () => {
-                if (items.length === 0) return;
-                try {
-                    const canvas = await html2canvas(receiptRef.current, { scale: 3, backgroundColor: '#ffffff' });
-                    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-                    const file = new File([blob], `DonHang_KhanhCuong.png`, { type: 'image/png' });
-                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                        await navigator.share({ files: [file], title: 'Gửi đơn hàng Khánh Cường' });
-                    } else {
-                        const link = document.createElement('a'); link.href = canvas.toDataURL(); link.download = `DonHang_KhanhCuong.png`; link.click();
-                        showNotif("Đã lưu ảnh vào máy!"); setTimeout(() => window.location.href = "zalo://", 1000);
+            const totalAmount = cart.reduce((acc, item) => acc + (item.appliedPrice * item.qty), 0);
+
+            // Lọc dữ liệu Báo cáo
+            const filteredStats = useMemo(() => {
+                const history = cloudData.sales || [];
+                const now = new Date();
+                let filtered = history.filter(item => {
+                    const itemDate = new Date(item.date);
+                    if (reportFilter === 'today') return itemDate.toDateString() === now.toDateString();
+                    if (reportFilter === 'month') return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+                    if (reportFilter === 'year') return itemDate.getFullYear() === now.getFullYear();
+                    if (reportFilter === 'custom' && customDate.start && customDate.end) {
+                        const s = new Date(customDate.start); s.setHours(0,0,0,0);
+                        const e = new Date(customDate.end); e.setHours(23,59,59,999);
+                        return itemDate >= s && itemDate <= e;
                     }
-                } catch (e) { showNotif("Lỗi tạo ảnh!"); }
-            };
+                    return true;
+                });
+                return { total: filtered.reduce((sum, s) => sum + (Number(s.total) || 0), 0), count: filtered.length, data: filtered };
+            }, [cloudData.sales, reportFilter, customDate]);
 
-            const saveSheet = async () => {
-                if (!sheetUrl) return setShowSettings(true);
+            const saveOrder = async () => {
+                if (!sheetUrl) { setView('settings'); return; }
+                setLoading(true);
+                const orderData = { 
+                    action: 'saveOrder', 
+                    customer, 
+                    note: orderNote, 
+                    total: totalAmount, 
+                    details: cart.map(i => `${i.name} (x${i.qty})${i.note ? ` [${i.note.replace(/\n/g, ' ')}]` : ''}`).join(', ') 
+                };
                 try {
-                    await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ time: new Date().toLocaleString('vi-VN'), customer, note: customerNote, total, items: items.map(i => `${i.name}(x${i.qty})`).join(', ') }) });
-                    showNotif("✅ Đã lưu vào hệ thống!");
-                } catch (e) { showNotif("Lỗi kết nối!"); }
+                    await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
+                    setShowBill(true); 
+                    setTimeout(async () => {
+                        const canvas = await html2canvas(receiptRef.current, { scale: 2 });
+                        setBillImg(canvas.toDataURL('image/png'));
+                    }, 800);
+                } catch (e) { alert("Lỗi lưu đơn"); }
+                setLoading(false);
             };
 
             return (
-                <div className="flex flex-col h-screen max-w-md mx-auto overflow-hidden relative">
-                    {notif && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white text-[11px] font-bold px-6 py-2.5 rounded-full shadow-2xl animate-bounce">{notif}</div>}
-                    <div className="safe-top bg-gradient-to-br from-blue-500 to-blue-700 text-white px-6 pb-6 rounded-b-[2.5rem] shadow-xl flex justify-between items-end h-36">
-                        <div className="animate-up"><h1 className="text-2xl font-black uppercase italic tracking-tighter">KHÁNH CƯỜNG</h1><p className="text-[10px] font-bold tracking-[0.2em] opacity-80 uppercase">Cát Tường</p></div>
-                        <button onClick={() => setShowSettings(true)} className="p-3 bg-white/20 rounded-2xl border border-white/30"><Icons.Settings /></button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5 no-scrollbar">
-                        <div className="glass-card p-4 rounded-3xl space-y-3 animate-up">
-                            <input className="w-full text-lg font-black text-blue-700 bg-transparent outline-none border-b border-blue-100 pb-1" value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Tên khách hàng..."/>
-                            <input className="w-full text-[11px] italic text-blue-300 bg-transparent outline-none" value={customerNote} onChange={(e) => setCustomerNote(e.target.value)} placeholder="SĐT, địa chỉ giao hàng..."/>
-                        </div>
-                        <div className="glass-card p-5 rounded-[2rem] space-y-4 animate-up">
-                            <input className="w-full p-4 bg-blue-50/50 rounded-2xl text-sm font-bold outline-none border border-transparent focus:border-blue-200 text-blue-900" placeholder="Tên hàng hóa..." value={form.name} onChange={(e) => setForm({...form, name: e.target.value})}/>
-                            <input className="w-full p-3 bg-blue-50/30 rounded-xl text-[10px] italic outline-none border border-transparent focus:border-blue-100" placeholder="Ghi chú (Nhập % để giảm giá)..." value={form.promo} onChange={(e) => setForm({...form, promo: e.target.value})}/>
-                            
-                            {/* Chỉnh sửa giao diện Giá và Số lượng cho mobile */}
-                            <div className="flex gap-2 items-center">
-                                <div className="flex-[7] relative">
-                                    <input 
-                                        type="number" 
-                                        inputMode="numeric"
-                                        className="w-full p-4 bg-blue-50 rounded-2xl font-black text-blue-700 outline-none border-2 border-transparent focus:border-blue-200 text-lg" 
-                                        placeholder="Giá bán" 
-                                        value={form.price} 
-                                        onChange={(e) => setForm({...form, price: e.target.value})}
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-blue-300">đ</span>
-                                </div>
-                                <div className="flex-[3]">
-                                    <input 
-                                        type="number" 
-                                        inputMode="numeric"
-                                        className="w-full p-4 bg-blue-50 rounded-2xl text-center font-black text-blue-700 outline-none border-2 border-transparent focus:border-blue-200 text-lg" 
-                                        placeholder="SL"
-                                        value={form.qty} 
-                                        onChange={(e) => setForm({...form, qty: e.target.value})}
-                                    />
-                                </div>
-                            </div>
+                <div className="flex flex-col h-screen max-w-md mx-auto relative bg-slate-50 overflow-hidden text-slate-900">
+                    
+                    {/* Header */}
+                    <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20">
+                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter">CƯỜNG ĐẸP TRAI</h1>
+                        <button onClick={fetchData} className={`p-2 rounded-full ${loading ? 'animate-spin text-blue-400' : 'text-slate-400'}`}><SyncIcon /></button>
+                    </header>
 
-                            <button onClick={addItem} className="w-full btn-blue text-white py-4 rounded-2xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest">
-                                <Icons.Plus /> Thêm Vào Đơn
+                    <main className="flex-1 overflow-y-auto p-5 pb-44 no-scrollbar">
+                        
+                        {view === 'pos' && (
+                            <div className="animate-up space-y-6">
+                                
+                                {/* KHÁCH HÀNG SECTION */}
+                                <section className="space-y-3">
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Khách hàng</span>
+                                        <div className="flex gap-2 items-center">
+                                            <input className="bg-white border border-slate-200 rounded-full px-3 py-1 text-[10px] font-bold w-24 outline-none focus:border-blue-400" placeholder="Tìm khách..." value={searchCust} onChange={e => setSearchCust(e.target.value)}/>
+                                            <button onClick={() => setShowAddCust(true)} className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-200"><PlusIcon /></button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Gợi ý khách hàng */}
+                                    {searchCust && (
+                                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                            {cloudData.customers.filter(c => c.name.toLowerCase().includes(searchCust.toLowerCase())).map((c, i) => (
+                                                <button key={i} onClick={() => {setCustomer(c.name); setOrderNote(c.note); setSearchCust('');}} className="px-3 py-1.5 glass-card text-[10px] font-bold whitespace-nowrap bg-blue-50 text-blue-700">{c.name}</button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="glass-card p-4">
+                                        <input className="w-full font-black text-slate-700 outline-none text-lg bg-transparent" value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Tên khách hàng..."/>
+                                        <textarea className="w-full text-xs text-slate-400 font-bold outline-none bg-transparent mt-1" rows="1" value={orderNote} onChange={e => setOrderNote(e.target.value)} placeholder="Ghi chú khách hoặc SĐT..."></textarea>
+                                    </div>
+                                </section>
+
+                                {/* SẢN PHẨM SECTION */}
+                                <section className="space-y-3">
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sản phẩm</span>
+                                        <button onClick={() => setShowAddProd(true)} className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-200"><PlusIcon /></button>
+                                    </div>
+                                    <div className="relative">
+                                        <input className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold shadow-sm outline-none focus:border-blue-400" placeholder="Tìm sản phẩm..." value={searchProd} onChange={e => setSearchProd(e.target.value)}/>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {cloudData.products.filter(p => p.name.toLowerCase().includes(searchProd.toLowerCase())).map((p, idx) => (
+                                            <button key={idx} onClick={() => { setSelectingItem(p); setInputQty(1); }} className="glass-card p-4 text-left btn-press group">
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase truncate mb-0.5 group-active:text-blue-500">{p.name}</div>
+                                                <div className="text-slate-800 font-black text-base italic">{p.price.toLocaleString()}đ</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* GIỎ HÀNG */}
+                                <section className="space-y-3">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Đơn hàng hiện tại ({cart.length})</span>
+                                    {cart.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-300 font-bold text-xs italic">Chưa có sp nào được chọn</div>
+                                    ) : cart.map(item => (
+                                        <div key={item.id} className="glass-card p-4 flex justify-between items-center border-l-4 border-l-blue-500 animate-up">
+                                            <div className="flex-1 pr-2">
+                                                <div className="text-xs font-black uppercase truncate">{item.name}</div>
+                                                <div className="text-[10px] font-bold text-blue-500">x{item.qty} {item.discountPercent > 0 && `(Giảm ${item.discountPercent}%)`}</div>
+                                                {item.note && <div className="text-[9px] text-slate-400 italic whitespace-pre-wrap leading-tight mt-1">{item.note}</div>}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-black text-sm">{(item.appliedPrice * item.qty).toLocaleString()}</span>
+                                                <button onClick={() => setCart(cart.filter(i => i.id !== item.id))} className="text-slate-200 hover:text-red-400 p-1"><TrashIcon /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </section>
+                            </div>
+                        )}
+
+                        {view === 'report' && (
+                            <div className="animate-up space-y-6">
+                                <section className="space-y-3">
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {['today', 'month', 'year', 'custom'].map(type => (
+                                            <button key={type} onClick={() => setReportFilter(type)} className={`py-2 rounded-xl text-[10px] font-bold border ${reportFilter === type ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-white text-slate-500 border-slate-200'}`}>
+                                                {type === 'today' ? 'Ngày' : type === 'month' ? 'Tháng' : type === 'year' ? 'Năm' : 'Tuỳ chọn'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {reportFilter === 'custom' && (
+                                        <div className="grid grid-cols-2 gap-2 mt-2 animate-up">
+                                            <input type="date" className="p-2 text-xs border border-slate-200 rounded-lg outline-none font-bold" value={customDate.start} onChange={e => setCustomDate({...customDate, start: e.target.value})}/>
+                                            <input type="date" className="p-2 text-xs border border-slate-200 rounded-lg outline-none font-bold" value={customDate.end} onChange={e => setCustomDate({...customDate, end: e.target.value})}/>
+                                        </div>
+                                    )}
+                                </section>
+
+                                <div className="bg-gradient-to-br from-blue-600 to-indigo-900 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden">
+                                    <p className="text-[10px] font-black uppercase opacity-70 tracking-widest relative z-10">Tổng doanh thu</p>
+                                    <h2 className="text-4xl font-black italic mt-1 tracking-tighter relative z-10">{filteredStats.total.toLocaleString()}đ</h2>
+                                    <p className="text-[10px] mt-4 font-bold opacity-80 uppercase tracking-widest relative z-10">Số lượng: {filteredStats.count} đơn hàng</p>
+                                    <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                                </div>
+
+                                <section className="space-y-2">
+                                    {filteredStats.data.slice().reverse().map((sale, i) => (
+                                        <div key={i} className="glass-card p-4 flex justify-between items-center animate-up">
+                                            <div>
+                                                <div className="text-[11px] font-black uppercase">{sale.customer}</div>
+                                                <div className="text-[9px] text-slate-400 font-bold">{new Date(sale.date).toLocaleString('vi-VN')}</div>
+                                                <div className="text-[9px] text-slate-400 italic mt-0.5 truncate max-w-[180px]">{sale.details}</div>
+                                            </div>
+                                            <div className="text-sm font-black text-blue-600">{(Number(sale.total)).toLocaleString()}</div>
+                                        </div>
+                                    ))}
+                                </section>
+                            </div>
+                        )}
+
+                        {view === 'settings' && (
+                            <div className="glass-card p-6 space-y-4 animate-up">
+                                <h3 className="font-black text-slate-800 text-lg">Cấu hình Drive</h3>
+                                <textarea className="w-full h-32 p-4 bg-slate-50 rounded-2xl text-[10px] border border-slate-200 font-mono outline-none focus:border-blue-400" value={sheetUrl} onChange={e => {setSheetUrl(e.target.value); localStorage.setItem('NL_POS_URL', e.target.value)}} placeholder="Dán URL Google Apps Script của bạn tại đây..."/>
+                                <button onClick={() => {fetchData(); setView('pos');}} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-xl">Kết nối & Đồng bộ</button>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer Nav */}
+                    <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-slate-100 px-6 py-4 pb-8 flex justify-around items-center z-50 rounded-t-[2.5rem]">
+                        <button onClick={() => setView('pos')} className={`flex flex-col items-center gap-1 ${view === 'pos' ? 'active-tab' : 'text-slate-300'}`}><HomeIcon /> <span className="text-[9px] font-black uppercase tracking-tighter">Bán hàng</span></button>
+                        <button onClick={() => setView('report')} className={`flex flex-col items-center gap-1 ${view === 'report' ? 'active-tab' : 'text-slate-300'}`}><ChartIcon /> <span className="text-[9px] font-black uppercase tracking-tighter">Báo cáo</span></button>
+                        <button onClick={() => setView('settings')} className={`flex flex-col items-center gap-1 ${view === 'settings' ? 'active-tab' : 'text-slate-300'}`}><div className={`w-5 h-5 rounded-full border-2 ${view === 'settings' ? 'border-blue-500 bg-blue-100' : 'border-current'}`}></div> <span className="text-[9px] font-black uppercase tracking-tighter">Cài đặt</span></button>
+                    </nav>
+
+                    {/* Floating Payment Button */}
+                    {view === 'pos' && totalAmount > 0 && (
+                        <div className="fixed bottom-28 inset-x-5 z-40">
+                            <button onClick={saveOrder} disabled={loading} className="w-full bg-slate-900 text-white p-5 rounded-3xl shadow-2xl flex justify-between items-center btn-press">
+                                <div className="text-left pl-2">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-widest mb-0.5">Tổng thanh toán</span>
+                                    <span className="text-2xl font-black italic tracking-tight">{totalAmount.toLocaleString()}đ</span>
+                                </div>
+                                <div className="bg-blue-600 px-6 py-2 rounded-full font-black text-xs uppercase shadow-lg shadow-blue-500/20">Lưu đơn ➔</div>
                             </button>
                         </div>
-                        <div className="space-y-3 pb-36">
-                            {items.length === 0 ? <div className="text-center py-10 opacity-20 font-bold uppercase text-xs tracking-widest">Đơn hàng trống</div> : items.map(item => (
-                                <div key={item.id} className="glass-card p-4 rounded-2xl flex justify-between items-center animate-up border-l-4 border-blue-400">
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-blue-900 text-sm uppercase">{item.name}</h4>
-                                        <div className="flex flex-wrap items-center gap-x-2">
-                                            <span className="text-[10px] font-bold text-blue-300">
-                                                {item.qty} x {item.originalPrice.toLocaleString()}đ
-                                            </span>
-                                            {item.discountText && (
-                                                <span className="text-[10px] text-red-500 font-black italic">{item.discountText}</span>
-                                            )}
-                                        </div>
-                                        {item.promo && <p className="text-[9px] text-blue-400 italic mt-1 leading-none">{item.promo}</p>}
-                                    </div>
-                                    <div className="text-right flex items-center gap-4">
-                                        <div className="font-black text-blue-800 text-base">{(item.qty * item.price).toLocaleString()}</div>
-                                        <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="text-blue-200"><Icons.Trash /></button>
-                                    </div>
+                    )}
+
+                    {/* Modal Thêm Khách Hàng */}
+                    {showAddCust && (
+                        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center p-6 animate-up">
+                            <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
+                                <h3 className="font-black text-lg">Thêm Khách Mới</h3>
+                                <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Tên khách hàng" value={newCust.name} onChange={e => setNewCust({...newCust, name: e.target.value})}/>
+                                <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Ghi chú / SĐT" rows="2" value={newCust.note} onChange={e => setNewCust({...newCust, note: e.target.value})}></textarea>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setShowAddCust(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Huỷ</button>
+                                    <button onClick={() => handleAddNew('cust')} className="flex-2 px-8 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs">Lưu khách</button>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl px-6 pt-5 pb-8 border-t border-blue-50 rounded-t-[2.5rem] shadow-2xl">
-                        <div className="flex justify-between items-end mb-4 px-2"><span className="text-[10px] font-black text-blue-300 uppercase tracking-widest leading-none mb-1">Thành tiền</span><span className="text-3xl font-black text-blue-600 italic leading-none">{total.toLocaleString()}đ</span></div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button onClick={saveSheet} className="flex items-center justify-center gap-2 bg-blue-50 text-blue-400 font-black py-4 rounded-2xl text-[10px] uppercase"><Icons.Save /> Lưu File</button>
-                            <button onClick={handleZalo} className="flex items-center justify-center gap-2 btn-blue text-white font-black py-4 rounded-2xl text-[10px] uppercase shadow-lg shadow-blue-200"><Icons.Send /> Gửi Zalo</button>
-                        </div>
-                    </div>
-                    {showSettings && (
-                        <div className="fixed inset-0 z-[120] bg-blue-900/40 backdrop-blur-sm flex items-end">
-                            <div className="bg-white w-full p-8 rounded-t-[3rem] animate-up shadow-2xl">
-                                <h3 className="font-black text-blue-700 uppercase italic mb-4">Kết nối Dữ liệu</h3>
-                                <textarea className="w-full p-4 bg-blue-50 rounded-2xl text-[10px] h-32 outline-none border border-blue-100" value={sheetUrl} onChange={(e) => { setSheetUrl(e.target.value); localStorage.setItem('POS_SHEET_KC', e.target.value); }} placeholder="Dán link App Script của bạn tại đây..."/>
-                                <button onClick={() => setShowSettings(false)} className="w-full mt-6 btn-blue text-white font-black py-4 rounded-2xl">LƯU CÀI ĐẶT</button>
                             </div>
                         </div>
                     )}
-                    <div className="fixed -left-[5000px]">
-                        <div ref={receiptRef} className="w-[700px] bg-white text-black font-sans p-16">
-                            <div className="text-center mb-12"><h1 className="text-5xl font-black uppercase tracking-[0.2em] text-blue-600 mb-2">ĐƠN HÀNG</h1><div className="flex items-center justify-center gap-4"><div className="h-0.5 w-20 bg-blue-200"></div><span className="text-xs font-black uppercase tracking-[0.4em] text-blue-300">KHÁNH CƯỜNG</span><div className="h-0.5 w-20 bg-blue-200"></div></div><p className="text-[11px] font-bold opacity-30 mt-6 tracking-widest italic">Thời gian: {new Date().toLocaleString('vi-VN')}</p></div>
-                            <div className="mb-12 bg-blue-50 p-8 rounded-[2rem] border-l-[12px] border-blue-500">
-                                <div className="text-[11px] font-black uppercase text-blue-400 mb-1 tracking-widest">Khách hàng nhận:</div>
-                                <div className="text-3xl font-black uppercase text-blue-900">{customer}</div>
-                                {customerNote && <div className="text-sm font-bold text-blue-700 mt-2 italic">📌 {customerNote}</div>}
+
+                    {/* Modal Thêm Sản Phẩm */}
+                    {showAddProd && (
+                        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center p-6 animate-up">
+                            <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
+                                <h3 className="font-black text-lg">Thêm SP Mới</h3>
+                                <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Tên sản phẩn" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})}/>
+                                <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Giá bán (đ)" value={newProd.price} onChange={e => setNewProd({...newProd, price: e.target.value})}/>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setShowAddProd(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Huỷ</button>
+                                    <button onClick={() => handleAddNew('prod')} className="flex-2 px-8 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs">Thêm sản phẩm</button>
+                                </div>
                             </div>
-                            <div className="mb-14 px-2">
-                                <div className="flex border-b-4 border-blue-600 pb-4 text-[12px] font-black uppercase tracking-wider text-blue-400"><div className="flex-1">Hàng hóa</div><div className="w-24 text-center">Số lượng</div><div className="w-32 text-right">Thành tiền</div></div>
-                                {items.map(item => (
-                                    <div key={item.id} className="flex py-8 border-b-2 border-dashed border-blue-100 items-center">
-                                        <div className="flex-1">
-                                            <div className="text-2xl font-black uppercase text-blue-900 leading-tight">{item.name}</div>
-                                            <div className="flex items-center gap-3 mt-1">
-                                                <span className={`${item.discountText ? 'line-through text-gray-400 text-sm' : 'text-blue-500 font-bold text-lg'}`}>
-                                                    {item.originalPrice.toLocaleString()}đ
-                                                </span>
-                                                {item.discountText && (
-                                                    <span className="text-blue-600 font-black text-lg">
-                                                        {item.price.toLocaleString()}đ {item.discountText}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {item.promo && <div className="text-[11px] font-bold text-blue-400 italic mt-2">* {item.promo}</div>}
-                                        </div>
-                                        <div className="w-24 flex justify-center"><div className="w-16 h-16 rounded-full border-4 border-blue-500 flex items-center justify-center text-3xl font-black text-blue-600 italic bg-white shadow-lg">{item.qty}</div></div>
-                                        <div className="w-32 text-right text-2xl font-black text-blue-900">{(item.qty * item.price).toLocaleString()}</div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="bg-blue-600 text-white p-10 rounded-[2.5rem] flex justify-between items-center shadow-2xl">
-                                <div><div className="text-[11px] font-black uppercase tracking-[0.3em] opacity-70 mb-1">Tổng cộng đơn hàng:</div><div className="text-6xl font-black italic tracking-tighter">{total.toLocaleString()}</div></div>
-                                <div className="text-right"><div className="text-2xl font-black italic opacity-60">VNĐ</div></div>
-                            </div>
-                            <div className="mt-20 text-center opacity-40"><p className="text-[12px] font-black uppercase tracking-[0.6em] text-blue-800">Cảm ơn quý khách</p><p className="text-[10px] font-bold italic mt-2">KHÁNH CƯỜNG - Cát Tường</p></div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Modal Chọn SP (Quantity & Note) */}
+                    {selectingItem && (
+                        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end p-4" onClick={() => setSelectingItem(null)}>
+                            <div className="bg-white w-full rounded-[2.5rem] p-6 space-y-5 animate-up shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <div className="text-center">
+                                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{selectingItem.name}</h3>
+                                    <p className="text-blue-600 font-bold">{selectingItem.price.toLocaleString()}đ</p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                        <button onClick={() => setInputQty(Math.max(1, inputQty-1))} className="w-12 h-12 bg-white rounded-xl shadow-sm text-2xl font-bold text-blue-600">-</button>
+                                        <div className="text-center">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Số lượng</span>
+                                            <input type="number" className="w-20 bg-transparent text-center text-3xl font-black outline-none border-b-2 border-blue-200 focus:border-blue-500" value={inputQty} onChange={e => setInputQty(e.target.value)}/>
+                                        </div>
+                                        <button onClick={() => setInputQty(Number(inputQty)+1)} className="w-12 h-12 bg-white rounded-xl shadow-sm text-2xl font-bold text-blue-600">+</button>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase ml-2">Ghi chú & Chiết khấu (%)</span>
+                                        <textarea className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-200 outline-none focus:border-blue-500" rows="3" placeholder="Gõ '%' để chiết khấu. Nhấn Enter để xuống dòng..." value={inputNote} onChange={e => setInputNote(e.target.value)}></textarea>
+                                    </div>
+                                </div>
+                                <button onClick={handleAddToCart} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-blue-200"> XÁC NHẬN SẢN PHẨM </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal Hoá Đơn */}
+                    {showBill && (
+                        <div className="fixed inset-0 z-[120] bg-slate-900/95 flex items-center justify-center p-4 overflow-y-auto no-scrollbar">
+                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-4 space-y-4 shadow-2xl">
+                                <div ref={receiptRef} className="receipt-container p-6 border border-slate-100">
+                                    <div className="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
+                                        <h2 className="text-2xl font-black uppercase tracking-tighter italic">CƯỜNG BÌNH PHƯỚC</h2>
+                                        <p className="text-[9px] opacity-60 font-bold mt-1 uppercase">{new Date().toLocaleString('vi-VN')}</p>
+                                    </div>
+                                    <div className="text-[10px] mb-4 space-y-1 font-bold">
+                                        <div className="flex justify-between"><span>KHÁCH HÀNG:</span> <span className="uppercase">{customer}</span></div>
+                                        {orderNote && <div className="text-[9px] text-slate-500 italic whitespace-pre-wrap">Ghi chú: {orderNote}</div>}
+                                    </div>
+                                    <table className="w-full text-[11px] mb-4 border-collapse">
+                                        <thead><tr className="border-b border-black text-left font-black uppercase"><th className="pb-1">Tên sản phẩm </th><th className="text-right pb-1">Thành tiền</th></tr></thead>
+                                        <tbody>
+                                            {cart.map((item, i) => (
+                                                <tr key={i} className="border-b border-slate-100">
+                                                    <td className="py-2">
+                                                        <div className="font-black uppercase">{item.name}</div>
+                                                        <div className="text-[9px] opacity-60 font-bold">{item.qty} x {item.price.toLocaleString()}đ</div>
+                                                        {item.discountPercent > 0 && <div className="text-blue-600 font-black italic">Giảm {item.discountPercent}%</div>}
+                                                        {item.note && <div className="text-slate-400 whitespace-pre-wrap italic text-[9px] mt-0.5 leading-tight">{item.note}</div>}
+                                                    </td>
+                                                    <td className="text-right font-black italic">{(item.appliedPrice * item.qty).toLocaleString()}đ</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    <div className="border-t-2 border-black pt-2 flex justify-between items-center">
+                                        <span className="font-black text-xs uppercase italic">TỔNG CỘNG:</span>
+                                        <span className="font-black text-2xl tracking-tighter italic">{totalAmount.toLocaleString()}đ</span>
+                                    </div>
+                                    <div className="text-center text-[9px] mt-10 opacity-30 font-black italic uppercase tracking-widest">Cảm ơn & Hẹn gặp lại!</div>
+                                </div>
+                                {billImg ? (
+                                    <a href={billImg} download={`KHANHCUONG_Bill_${Date.now()}.png`} className="block w-full bg-blue-600 text-white py-4 rounded-xl text-center font-black shadow-lg shadow-blue-500/20">LƯU ẢNH HOÁ ĐƠN</a>
+                                ) : <div className="text-center py-2 text-blue-500 font-black animate-pulse text-xs">Đang chuẩn bị hoá đơn...</div>}
+                                <button onClick={() => {setCart([]); setCustomer('Khách lẻ'); setOrderNote(''); setShowBill(false); setBillImg(null);}} className="w-full text-slate-400 font-bold py-2 text-[10px] uppercase tracking-widest">Hoàn tất & Quay lại</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
 </html>
-
