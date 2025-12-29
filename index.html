@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title> KHÁNH CƯỜNG - CÁT TƯỜNG</title>
+    <title> KHÁNH CƯỜNG - CÁT TƯỜNG </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -18,7 +18,6 @@
         .btn-press:active { transform: scale(0.96); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-up { animation: slideUp 0.3s ease-out forwards; }
-        .receipt-container { background: white; color: black; font-family: 'Courier New', Courier, monospace; line-height: 1.2; }
     </style>
 </head>
 <body>
@@ -47,18 +46,15 @@
             const [billImg, setBillImg] = useState(null);
             const receiptRef = useRef(null);
 
-            // Modals Thêm mới
             const [showAddCust, setShowAddCust] = useState(false);
             const [showAddProd, setShowAddProd] = useState(false);
             const [newCust, setNewCust] = useState({ name: '', note: '' });
             const [newProd, setNewProd] = useState({ name: '', price: '' });
 
-            // Cloud Data
             const [cloudData, setCloudData] = useState({ products: [], customers: [], sales: [] });
             const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('NL_POS_URL') || '');
             const [loading, setLoading] = useState(false);
             
-            // Report State
             const [reportFilter, setReportFilter] = useState('today');
             const [customDate, setCustomDate] = useState({ start: '', end: '' });
 
@@ -69,13 +65,12 @@
                     const res = await fetch(`${sheetUrl}?action=getData&_t=${Date.now()}`);
                     const data = await res.json();
                     setCloudData(data);
-                } catch (e) { console.error("Lỗi kết nối"); }
+                } catch (e) { console.error("Lỗi kết nối dữ liệu"); }
                 setLoading(false);
             };
 
             useEffect(() => { if (sheetUrl) fetchData(); }, []);
 
-            // Logic thêm mới Khách hàng / Sản phẩm
             const handleAddNew = async (type) => {
                 if (!sheetUrl) return;
                 setLoading(true);
@@ -84,12 +79,11 @@
                     await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) });
                     setShowAddCust(false); setShowAddProd(false);
                     setNewCust({ name: '', note: '' }); setNewProd({ name: '', price: '' });
-                    fetchData(); // Tải lại dữ liệu
+                    setTimeout(fetchData, 1000);
                 } catch (e) { alert("Lỗi khi thêm mới!"); }
                 setLoading(false);
             };
 
-            // Logic tính Chiết khấu thông minh
             const getPriceInfo = (price, note) => {
                 const match = note.match(/(\d+)%/);
                 if (match) {
@@ -105,6 +99,7 @@
                     ...selectingItem, 
                     qty: Number(inputQty) || 1, 
                     note: inputNote, 
+                    originalPrice: selectingItem.price,
                     appliedPrice: finalPrice, 
                     discountPercent, 
                     id: Date.now() 
@@ -114,7 +109,6 @@
 
             const totalAmount = cart.reduce((acc, item) => acc + (item.appliedPrice * item.qty), 0);
 
-            // Lọc dữ liệu Báo cáo
             const filteredStats = useMemo(() => {
                 const history = cloudData.sales || [];
                 const now = new Date();
@@ -146,39 +140,46 @@
                 try {
                     await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
                     setShowBill(true); 
+                    // Chờ DOM cập nhật trước khi chụp ảnh
                     setTimeout(async () => {
-                        const canvas = await html2canvas(receiptRef.current, { scale: 2 });
+                        const canvas = await html2canvas(receiptRef.current, { scale: 2, useCORS: true });
                         setBillImg(canvas.toDataURL('image/png'));
-                    }, 800);
-                } catch (e) { alert("Lỗi lưu đơn"); }
-                setLoading(false);
+                        setLoading(false);
+                    }, 1000);
+                } catch (e) { 
+                    alert("Lỗi lưu đơn"); 
+                    setLoading(false);
+                }
+            };
+
+            const closeBill = () => {
+                setShowBill(false);
+                setBillImg(null);
+                setCart([]);
+                setCustomer('Khách lẻ');
+                setOrderNote('');
+                fetchData();
             };
 
             return (
                 <div className="flex flex-col h-screen max-w-md mx-auto relative bg-slate-50 overflow-hidden text-slate-900">
                     
-                    {/* Header */}
                     <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20">
-                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter">CƯỜNG ĐẸP TRAI</h1>
+                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter">KHÁNH CƯỜNG</h1>
                         <button onClick={fetchData} className={`p-2 rounded-full ${loading ? 'animate-spin text-blue-400' : 'text-slate-400'}`}><SyncIcon /></button>
                     </header>
 
                     <main className="flex-1 overflow-y-auto p-5 pb-44 no-scrollbar">
-                        
                         {view === 'pos' && (
                             <div className="animate-up space-y-6">
-                                
-                                {/* KHÁCH HÀNG SECTION */}
                                 <section className="space-y-3">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Khách hàng</span>
                                         <div className="flex gap-2 items-center">
-                                            <input className="bg-white border border-slate-200 rounded-full px-3 py-1 text-[10px] font-bold w-24 outline-none focus:border-blue-400" placeholder="Tìm khách..." value={searchCust} onChange={e => setSearchCust(e.target.value)}/>
+                                            <input className="bg-white border border-slate-200 rounded-full px-3 py-1 text-[10px] font-bold w-24 outline-none focus:border-blue-400" placeholder="Tìm..." value={searchCust} onChange={e => setSearchCust(e.target.value)}/>
                                             <button onClick={() => setShowAddCust(true)} className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-200"><PlusIcon /></button>
                                         </div>
                                     </div>
-                                    
-                                    {/* Gợi ý khách hàng */}
                                     {searchCust && (
                                         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                                             {cloudData.customers.filter(c => c.name.toLowerCase().includes(searchCust.toLowerCase())).map((c, i) => (
@@ -186,37 +187,32 @@
                                             ))}
                                         </div>
                                     )}
-
                                     <div className="glass-card p-4">
                                         <input className="w-full font-black text-slate-700 outline-none text-lg bg-transparent" value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Tên khách hàng..."/>
                                         <textarea className="w-full text-xs text-slate-400 font-bold outline-none bg-transparent mt-1" rows="1" value={orderNote} onChange={e => setOrderNote(e.target.value)} placeholder="Ghi chú khách hoặc SĐT..."></textarea>
                                     </div>
                                 </section>
 
-                                {/* SẢN PHẨM SECTION */}
                                 <section className="space-y-3">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sản phẩm</span>
                                         <button onClick={() => setShowAddProd(true)} className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-200"><PlusIcon /></button>
                                     </div>
-                                    <div className="relative">
-                                        <input className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold shadow-sm outline-none focus:border-blue-400" placeholder="Tìm sản phẩm..." value={searchProd} onChange={e => setSearchProd(e.target.value)}/>
-                                    </div>
+                                    <input className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold shadow-sm outline-none focus:border-blue-400" placeholder="Tìm sản phẩm..." value={searchProd} onChange={e => setSearchProd(e.target.value)}/>
                                     <div className="grid grid-cols-2 gap-3">
                                         {cloudData.products.filter(p => p.name.toLowerCase().includes(searchProd.toLowerCase())).map((p, idx) => (
                                             <button key={idx} onClick={() => { setSelectingItem(p); setInputQty(1); }} className="glass-card p-4 text-left btn-press group">
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase truncate mb-0.5 group-active:text-blue-500">{p.name}</div>
-                                                <div className="text-slate-800 font-black text-base italic">{p.price.toLocaleString()}đ</div>
+                                                <div className="text-slate-800 font-black text-base italic">{Number(p.price).toLocaleString()}đ</div>
                                             </button>
                                         ))}
                                     </div>
                                 </section>
 
-                                {/* GIỎ HÀNG */}
                                 <section className="space-y-3">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Đơn hàng hiện tại ({cart.length})</span>
                                     {cart.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-300 font-bold text-xs italic">Chưa có sp nào được chọn</div>
+                                        <div className="text-center py-8 text-slate-300 font-bold text-xs italic">Chưa có sản phẩm nào</div>
                                     ) : cart.map(item => (
                                         <div key={item.id} className="glass-card p-4 flex justify-between items-center border-l-4 border-l-blue-500 animate-up">
                                             <div className="flex-1 pr-2">
@@ -276,8 +272,8 @@
 
                         {view === 'settings' && (
                             <div className="glass-card p-6 space-y-4 animate-up">
-                                <h3 className="font-black text-slate-800 text-lg">Cấu hình Drive</h3>
-                                <textarea className="w-full h-32 p-4 bg-slate-50 rounded-2xl text-[10px] border border-slate-200 font-mono outline-none focus:border-blue-400" value={sheetUrl} onChange={e => {setSheetUrl(e.target.value); localStorage.setItem('NL_POS_URL', e.target.value)}} placeholder="Dán URL Google Apps Script của bạn tại đây..."/>
+                                <h3 className="font-black text-slate-800 text-lg">Cấu hình Google Sheets</h3>
+                                <textarea className="w-full h-32 p-4 bg-slate-50 rounded-2xl text-[10px] border border-slate-200 font-mono outline-none focus:border-blue-400" value={sheetUrl} onChange={e => {setSheetUrl(e.target.value); localStorage.setItem('NL_POS_URL', e.target.value)}} placeholder="Dán URL Google Apps Script tại đây..."/>
                                 <button onClick={() => {fetchData(); setView('pos');}} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-xl">Kết nối & Đồng bộ</button>
                             </div>
                         )}
@@ -291,9 +287,9 @@
                     </nav>
 
                     {/* Floating Payment Button */}
-                    {view === 'pos' && totalAmount > 0 && (
+                    {view === 'pos' && totalAmount > 0 && !loading && (
                         <div className="fixed bottom-28 inset-x-5 z-40">
-                            <button onClick={saveOrder} disabled={loading} className="w-full bg-slate-900 text-white p-5 rounded-3xl shadow-2xl flex justify-between items-center btn-press">
+                            <button onClick={saveOrder} className="w-full bg-slate-900 text-white p-5 rounded-3xl shadow-2xl flex justify-between items-center btn-press">
                                 <div className="text-left pl-2">
                                     <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-widest mb-0.5">Tổng thanh toán</span>
                                     <span className="text-2xl font-black italic tracking-tight">{totalAmount.toLocaleString()}đ</span>
@@ -323,7 +319,7 @@
                         <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center p-6 animate-up">
                             <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
                                 <h3 className="font-black text-lg">Thêm SP Mới</h3>
-                                <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Tên sản phẩn" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})}/>
+                                <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Tên sản phẩm" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})}/>
                                 <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Giá bán (đ)" value={newProd.price} onChange={e => setNewProd({...newProd, price: e.target.value})}/>
                                 <div className="flex gap-2">
                                     <button onClick={() => setShowAddProd(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Huỷ</button>
@@ -339,7 +335,7 @@
                             <div className="bg-white w-full rounded-[2.5rem] p-6 space-y-5 animate-up shadow-2xl" onClick={e => e.stopPropagation()}>
                                 <div className="text-center">
                                     <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{selectingItem.name}</h3>
-                                    <p className="text-blue-600 font-bold">{selectingItem.price.toLocaleString()}đ</p>
+                                    <p className="text-blue-600 font-bold">{Number(selectingItem.price).toLocaleString()}đ</p>
                                 </div>
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
@@ -352,60 +348,109 @@
                                     </div>
                                     <div className="space-y-1">
                                         <span className="text-[9px] font-black text-slate-400 uppercase ml-2">Ghi chú & Chiết khấu (%)</span>
-                                        <textarea className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-200 outline-none focus:border-blue-500" rows="3" placeholder="Gõ '%' để chiết khấu. Nhấn Enter để xuống dòng..." value={inputNote} onChange={e => setInputNote(e.target.value)}></textarea>
+                                        <textarea className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-200 outline-none focus:border-blue-500" rows="3" placeholder="Gõ '%' để chiết khấu..." value={inputNote} onChange={e => setInputNote(e.target.value)}></textarea>
                                     </div>
                                 </div>
-                                <button onClick={handleAddToCart} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-blue-200"> XÁC NHẬN SẢN PHẨM </button>
+                                <button onClick={handleAddToCart} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-blue-200"> XÁC NHẬN </button>
                             </div>
                         </div>
                     )}
 
-                    {/* Modal Hoá Đơn */}
+                    {/* Modal HIỂN THỊ HÓA ĐƠN ĐỂ LƯU */}
                     {showBill && (
-                        <div className="fixed inset-0 z-[120] bg-slate-900/95 flex items-center justify-center p-4 overflow-y-auto no-scrollbar">
-                            <div className="bg-white w-full max-w-sm rounded-[2rem] p-4 space-y-4 shadow-2xl">
-                                <div ref={receiptRef} className="receipt-container p-6 border border-slate-100">
-                                    <div className="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
-                                        <h2 className="text-2xl font-black uppercase tracking-tighter italic">CƯỜNG BÌNH PHƯỚC</h2>
-                                        <p className="text-[9px] opacity-60 font-bold mt-1 uppercase">{new Date().toLocaleString('vi-VN')}</p>
+                        <div className="fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center p-6">
+                            {!billImg ? (
+                                <div className="text-white font-black animate-pulse">ĐANG TẠO HÓA ĐƠN...</div>
+                            ) : (
+                                <div className="w-full max-w-sm flex flex-col gap-4 animate-up">
+                                    <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
+                                        <img src={billImg} className="w-full h-auto" alt="Hóa đơn" />
                                     </div>
-                                    <div className="text-[10px] mb-4 space-y-1 font-bold">
-                                        <div className="flex justify-between"><span>KHÁCH HÀNG:</span> <span className="uppercase">{customer}</span></div>
-                                        {orderNote && <div className="text-[9px] text-slate-500 italic whitespace-pre-wrap">Ghi chú: {orderNote}</div>}
-                                    </div>
-                                    <table className="w-full text-[11px] mb-4 border-collapse">
-                                        <thead><tr className="border-b border-black text-left font-black uppercase"><th className="pb-1">Tên sản phẩm </th><th className="text-right pb-1">Thành tiền</th></tr></thead>
-                                        <tbody>
-                                            {cart.map((item, i) => (
-                                                <tr key={i} className="border-b border-slate-100">
-                                                    <td className="py-2">
-                                                        <div className="font-black uppercase">{item.name}</div>
-                                                        <div className="text-[9px] opacity-60 font-bold">{item.qty} x {item.price.toLocaleString()}đ</div>
-                                                        {item.discountPercent > 0 && <div className="text-blue-600 font-black italic">Giảm {item.discountPercent}%</div>}
-                                                        {item.note && <div className="text-slate-400 whitespace-pre-wrap italic text-[9px] mt-0.5 leading-tight">{item.note}</div>}
-                                                    </td>
-                                                    <td className="text-right font-black italic">{(item.appliedPrice * item.qty).toLocaleString()}đ</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                    <div className="border-t-2 border-black pt-2 flex justify-between items-center">
-                                        <span className="font-black text-xs uppercase italic">TỔNG CỘNG:</span>
-                                        <span className="font-black text-2xl tracking-tighter italic">{totalAmount.toLocaleString()}đ</span>
-                                    </div>
-                                    <div className="text-center text-[9px] mt-10 opacity-30 font-black italic uppercase tracking-widest">Cảm ơn & Hẹn gặp lại!</div>
+                                    <p className="text-white/50 text-[10px] text-center font-bold uppercase tracking-widest">Nhấn giữ ảnh để lưu hoặc chụp màn hình</p>
+                                    <button onClick={closeBill} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest">HOÀN TẤT & ĐÓNG</button>
                                 </div>
-                                {billImg ? (
-                                    <a href={billImg} download={`KHANHCUONG_Bill_${Date.now()}.png`} className="block w-full bg-blue-600 text-white py-4 rounded-xl text-center font-black shadow-lg shadow-blue-500/20">LƯU ẢNH HOÁ ĐƠN</a>
-                                ) : <div className="text-center py-2 text-blue-500 font-black animate-pulse text-xs">Đang chuẩn bị hoá đơn...</div>}
-                                <button onClick={() => {setCart([]); setCustomer('Khách lẻ'); setOrderNote(''); setShowBill(false); setBillImg(null);}} className="w-full text-slate-400 font-bold py-2 text-[10px] uppercase tracking-widest">Hoàn tất & Quay lại</button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* VÙNG CHỨA HÓA ĐƠN ẨN ĐỂ CHỤP ẢNH */}
+                    <div className="fixed -left-[9999px] top-0">
+                        <div ref={receiptRef} className="w-[800px] bg-white text-black font-sans p-20">
+                            <div className="text-center mb-16">
+                                <h1 className="text-6xl font-black uppercase tracking-[0.2em] text-blue-600 mb-2">ĐƠN HÀNG</h1>
+                                <div className="flex items-center justify-center gap-4">
+                                    <div className="h-1 w-24 bg-blue-200"></div>
+                                    <span className="text-lg font-black uppercase tracking-[0.4em] text-blue-300">KHÁNH CƯỜNG</span>
+                                    <div className="h-1 w-24 bg-blue-200"></div>
+                                </div>
+                                <p className="text-sm font-bold opacity-30 mt-8 tracking-widest italic">Ngày tạo: {new Date().toLocaleString('vi-VN')}</p>
                             </div>
+                            
+                            <div className="mb-14 bg-blue-50 p-10 rounded-[3rem] border-l-[16px] border-blue-500 shadow-sm">
+                                <div className="text-sm font-black uppercase text-blue-400 mb-2 tracking-widest">Khách hàng:</div>
+                                <div className="text-5xl font-black uppercase text-blue-900">{customer}</div>
+                                {orderNote && <div className="text-xl font-bold text-blue-700 mt-4 italic">📌 {orderNote}</div>}
+                            </div>
+
+                            <div className="mb-16 px-4">
+                                <div className="flex border-b-8 border-blue-600 pb-6 text-lg font-black uppercase tracking-wider text-blue-400">
+                                    <div className="flex-1">Hàng hóa</div>
+                                    <div className="w-32 text-center">SL</div>
+                                    <div className="w-40 text-right">Thành tiền</div>
+                                </div>
+                                {cart.map(item => (
+                                    <div key={item.id} className="flex py-10 border-b-2 border-dashed border-blue-100 items-center">
+                                        <div className="flex-1">
+                                            <div className="text-3xl font-black uppercase text-blue-900 leading-tight mb-2">{item.name}</div>
+                                            <div className="flex items-center gap-4">
+                                                <span className={`${item.discountPercent > 0 ? 'line-through text-gray-400 text-xl' : 'text-blue-500 font-bold text-2xl'}`}>
+                                                    {Number(item.originalPrice).toLocaleString()}đ
+                                                </span>
+                                                {item.discountPercent > 0 && (
+                                                    <span className="text-blue-600 font-black text-2xl">
+                                                        {Number(item.appliedPrice).toLocaleString()}đ (-{item.discountPercent}%)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {item.note && <div className="text-sm font-bold text-blue-400 italic mt-3 bg-blue-50/50 inline-block px-3 py-1 rounded-lg">* {item.note}</div>}
+                                        </div>
+                                        <div className="w-32 flex justify-center">
+                                            <div className="w-20 h-20 rounded-full border-4 border-blue-500 flex items-center justify-center text-4xl font-black text-blue-600 italic bg-white shadow-md">{item.qty}</div>
+                                        </div>
+                                        <div className="w-40 text-right text-3xl font-black text-blue-900">{(item.qty * item.appliedPrice).toLocaleString()}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="bg-blue-600 text-white p-14 rounded-[4rem] flex justify-between items-center shadow-2xl mt-10">
+                                <div>
+                                    <div className="text-sm font-black uppercase tracking-[0.3em] opacity-70 mb-2">Tổng cộng thanh toán:</div>
+                                    <div className="text-8xl font-black italic tracking-tighter leading-none">{totalAmount.toLocaleString()}</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-3xl font-black italic opacity-60">VNĐ</div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-24 text-center">
+                                <p className="text-lg font-black uppercase tracking-[0.8em] text-blue-800 opacity-20">Cảm ơn quý khách</p>
+                                <div className="mt-6 flex justify-center items-center gap-4 opacity-30">
+                                    <div className="h-px w-10 bg-blue-900"></div>
+                                    <p className="text-sm font-bold italic">KHÁNH CƯỜNG - Bình Phước</p>
+                                    <div className="h-px w-10 bg-blue-900"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {loading && (
+                        <div className="fixed inset-0 z-[300] bg-white/50 backdrop-blur-sm flex items-center justify-center">
+                            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                         </div>
                     )}
                 </div>
             );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
