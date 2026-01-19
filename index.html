@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title> KHÁNH CƯỜNG - CÁT TƯỜNG </title>
+    <title> Khánh Cường - Cát Tường </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -45,7 +45,7 @@
             const [inputNote, setInputNote] = useState('');
             const [showBill, setShowBill] = useState(false);
             const [billImg, setBillImg] = useState(null);
-            const [previewData, setPreviewData] = useState(null); // Dữ liệu để xem lại hóa đơn
+            const [previewData, setPreviewData] = useState(null); 
             const receiptRef = useRef(null);
 
             const [showAddCust, setShowAddCust] = useState(false);
@@ -132,16 +132,17 @@
             const saveOrder = async () => {
                 if (!sheetUrl) { setView('settings'); return; }
                 setLoading(true);
+                // Lưu thêm [Giá: ...] để sau này xem lại có dữ liệu chính xác
                 const orderData = { 
                     action: 'saveOrder', 
                     customer, 
                     note: orderNote, 
                     total: totalAmount, 
-                    details: cart.map(i => `${i.name} (x${i.qty})${i.note ? ` [${i.note.replace(/\n/g, ' ')}]` : ''}`).join(', ') 
+                    details: cart.map(i => `${i.name} (x${i.qty}) [Giá:${i.appliedPrice}]${i.note ? ` [Ghi chú: ${i.note.replace(/\n/g, ' ')}]` : ''}`).join(', ') 
                 };
                 try {
                     await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
-                    setPreviewData(null); // Đảm bảo không ở chế độ xem lại
+                    setPreviewData(null); 
                     setShowBill(true); 
                     setTimeout(async () => {
                         const canvas = await html2canvas(receiptRef.current, { scale: 2, useCORS: true });
@@ -154,18 +155,28 @@
                 }
             };
 
-            // Hàm xem lại hóa đơn cũ
             const handleViewHistory = (sale) => {
                 setLoading(true);
-                // Phân tách chuỗi details để hiển thị lại
                 const items = sale.details.split(', ').map((str, idx) => {
                     const nameMatch = str.match(/^(.*?) \(x(\d+)\)/);
-                    const noteMatch = str.match(/\[(.*?)\]/);
+                    const priceMatch = str.match(/\[Giá:(\d+)\]/);
+                    const noteMatch = str.match(/\[Ghi chú: (.*?)\]/);
+                    
+                    const name = nameMatch ? nameMatch[1] : str;
+                    const qty = nameMatch ? parseInt(nameMatch[2]) : 1;
+                    let price = priceMatch ? parseInt(priceMatch[1]) : 0;
+                    
+                    // Nếu đơn cũ không có giá lưu kèm, thử tìm giá trong danh sách sản phẩm hiện tại
+                    if (price === 0) {
+                        const currentProd = cloudData.products.find(p => p.name === name);
+                        if (currentProd) price = Number(currentProd.price);
+                    }
+
                     return {
                         id: idx,
-                        name: nameMatch ? nameMatch[1] : str,
-                        qty: nameMatch ? nameMatch[2] : 1,
-                        appliedPrice: 0, // Giá lẻ không lưu trong lịch sử, chỉ lưu tổng
+                        name: name,
+                        qty: qty,
+                        appliedPrice: price, 
                         note: noteMatch ? noteMatch[1] : ''
                     };
                 });
@@ -190,7 +201,6 @@
             const closeBill = () => {
                 setShowBill(false);
                 setBillImg(null);
-                // Nếu không phải đang xem lại thì mới xóa giỏ hàng
                 if (!previewData) {
                     setCart([]);
                     setCustomer('Khách lẻ');
@@ -204,7 +214,7 @@
                 <div className="flex flex-col h-screen max-w-md mx-auto relative bg-slate-50 overflow-hidden text-slate-900">
                     
                     <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20">
-                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter">KHÁNH CƯỜNG</h1>
+                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter uppercase">Khánh Cường/h1>
                         <button onClick={fetchData} className={`p-2 rounded-full ${loading ? 'animate-spin text-blue-400' : 'text-slate-400'}`}><SyncIcon /></button>
                     </header>
 
@@ -343,7 +353,7 @@
                         </div>
                     )}
 
-                    {/* Modals... (AddCust, AddProd, SelectingItem - Giữ nguyên như cũ) */}
+                    {/* Modal Thêm Khách / Sản phẩm / Chọn SL */}
                     {showAddCust && (
                         <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center p-6 animate-up">
                             <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
@@ -398,7 +408,7 @@
                         </div>
                     )}
 
-                    {/* Modal HIỂN THỊ HÓA ĐƠN ĐỂ LƯU / XEM LẠI */}
+                    {/* Modal HIỂN THỊ HÓA ĐƠN */}
                     {showBill && (
                         <div className="fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center p-6">
                             {!billImg ? (
@@ -415,7 +425,7 @@
                         </div>
                     )}
 
-                    {/* VÙNG CHỨA HÓA ĐƠN ẨN ĐỂ CHỤP ẢNH (ĐÃ CẬP NHẬT ĐỂ XEM LẠI) */}
+                    {/* VÙNG CHỨA HÓA ĐƠN ẨN ĐỂ CHỤP ẢNH */}
                     <div className="fixed -left-[9999px] top-0">
                         <div ref={receiptRef} className="w-[800px] bg-white text-black font-sans p-20">
                             <div className="text-center mb-16">
@@ -424,7 +434,7 @@
                                 </h1>
                                 <div className="flex items-center justify-center gap-4">
                                     <div className="h-1 w-24 bg-blue-200"></div>
-                                    <span className="text-lg font-black uppercase tracking-[0.4em] text-blue-300">KHÁNH CƯỜNG</span>
+                                    <span className="text-lg font-black uppercase tracking-[0.4em] text-blue-300">Khánh Cường</span>
                                     <div className="h-1 w-24 bg-blue-200"></div>
                                 </div>
                                 <p className="text-sm font-bold opacity-30 mt-8 tracking-widest italic">
@@ -454,25 +464,18 @@
                                     <div key={item.id} className="flex py-10 border-b-2 border-dashed border-blue-100 items-center">
                                         <div className="flex-1">
                                             <div className="text-3xl font-black uppercase text-blue-900 leading-tight mb-2">{item.name}</div>
-                                            {!previewData && (
-                                                <div className="flex items-center gap-4">
-                                                    <span className={`${item.discountPercent > 0 ? 'line-through text-gray-400 text-xl' : 'text-blue-500 font-bold text-2xl'}`}>
-                                                        {Number(item.originalPrice).toLocaleString()}đ
-                                                    </span>
-                                                    {item.discountPercent > 0 && (
-                                                        <span className="text-blue-600 font-black text-2xl">
-                                                            {Number(item.appliedPrice).toLocaleString()}đ (-{item.discountPercent}%)
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-blue-500 font-bold text-2xl">
+                                                    {Number(item.appliedPrice).toLocaleString()}đ
+                                                </span>
+                                            </div>
                                             {item.note && <div className="text-sm font-bold text-blue-400 italic mt-3 bg-blue-50/50 inline-block px-3 py-1 rounded-lg">* {item.note}</div>}
                                         </div>
                                         <div className="w-32 flex justify-center">
                                             <div className="w-20 h-20 rounded-full border-4 border-blue-500 flex items-center justify-center text-4xl font-black text-blue-600 italic bg-white shadow-md">{item.qty}</div>
                                         </div>
                                         <div className="w-40 text-right text-3xl font-black text-blue-900">
-                                            {previewData ? "---" : (item.qty * item.appliedPrice).toLocaleString()}
+                                            {(item.qty * item.appliedPrice).toLocaleString()}
                                         </div>
                                     </div>
                                 ))}
@@ -494,7 +497,7 @@
                                 <p className="text-lg font-black uppercase tracking-[0.8em] text-blue-800 opacity-20">Cảm ơn quý khách</p>
                                 <div className="mt-6 flex justify-center items-center gap-4 opacity-30">
                                     <div className="h-px w-10 bg-blue-900"></div>
-                                    <p className="text-sm font-bold italic">KHÁNH CƯỜNG - Bình Phước</p>
+                                    <p className="text-sm font-bold italic">Khánh Cường - Cát Tường</p>
                                     <div className="h-px w-10 bg-blue-900"></div>
                                 </div>
                             </div>
