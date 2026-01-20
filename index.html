@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title> Khánh Cường - Cát Tường </title>
+    <title> KHÁNH CƯỜNG - CÁT TƯỜNG </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -54,7 +54,7 @@
             const [newProd, setNewProd] = useState({ name: '', price: '' });
 
             const [cloudData, setCloudData] = useState({ products: [], customers: [], sales: [] });
-            const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('NL_POS_URL') || '');
+            const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('KC_POS_URL') || '');
             const [loading, setLoading] = useState(false);
             
             const [reportFilter, setReportFilter] = useState('today');
@@ -132,7 +132,6 @@
             const saveOrder = async () => {
                 if (!sheetUrl) { setView('settings'); return; }
                 setLoading(true);
-                // Lưu thêm [Giá: ...] để sau này xem lại có dữ liệu chính xác
                 const orderData = { 
                     action: 'saveOrder', 
                     customer, 
@@ -166,7 +165,6 @@
                     const qty = nameMatch ? parseInt(nameMatch[2]) : 1;
                     let price = priceMatch ? parseInt(priceMatch[1]) : 0;
                     
-                    // Nếu đơn cũ không có giá lưu kèm, thử tìm giá trong danh sách sản phẩm hiện tại
                     if (price === 0) {
                         const currentProd = cloudData.products.find(p => p.name === name);
                         if (currentProd) price = Number(currentProd.price);
@@ -183,7 +181,7 @@
 
                 setPreviewData({
                     customer: sale.customer,
-                    note: '',
+                    note: sale.note || '', // Đã sửa: Lấy lại ghi chú đơn hàng từ Sheets
                     date: new Date(sale.date).toLocaleString('vi-VN'),
                     total: sale.total,
                     items: items,
@@ -214,7 +212,7 @@
                 <div className="flex flex-col h-screen max-w-md mx-auto relative bg-slate-50 overflow-hidden text-slate-900">
                     
                     <header className="px-6 py-4 flex justify-between items-center bg-white shadow-sm z-20">
-                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter uppercase">Khánh Cường/h1>
+                        <h1 className="text-xl font-black text-blue-600 italic tracking-tighter uppercase">KHÁNH CƯỜNG</h1>
                         <button onClick={fetchData} className={`p-2 rounded-full ${loading ? 'animate-spin text-blue-400' : 'text-slate-400'}`}><SyncIcon /></button>
                     </header>
 
@@ -327,20 +325,20 @@
                         {view === 'settings' && (
                             <div className="glass-card p-6 space-y-4 animate-up">
                                 <h3 className="font-black text-slate-800 text-lg">Cấu hình Google Sheets</h3>
-                                <textarea className="w-full h-32 p-4 bg-slate-50 rounded-2xl text-[10px] border border-slate-200 font-mono outline-none focus:border-blue-400" value={sheetUrl} onChange={e => {setSheetUrl(e.target.value); localStorage.setItem('NL_POS_URL', e.target.value)}} placeholder="Dán URL Google Apps Script tại đây..."/>
+                                <textarea className="w-full h-32 p-4 bg-slate-50 rounded-2xl text-[10px] border border-slate-200 font-mono outline-none focus:border-blue-400" value={sheetUrl} onChange={e => {setSheetUrl(e.target.value); localStorage.setItem('KC_POS_URL', e.target.value)}} placeholder="Dán URL Google Apps Script tại đây..."/>
                                 <button onClick={() => {fetchData(); setView('pos');}} className="w-full bg-slate-900 text-white font-black py-4 rounded-xl text-xs uppercase tracking-widest shadow-xl">Kết nối & Đồng bộ</button>
                             </div>
                         )}
                     </main>
 
-                    {/* Footer Nav */}
+                    {/* Nav */}
                     <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-slate-100 px-6 py-4 pb-8 flex justify-around items-center z-50 rounded-t-[2.5rem]">
                         <button onClick={() => setView('pos')} className={`flex flex-col items-center gap-1 ${view === 'pos' ? 'active-tab' : 'text-slate-300'}`}><HomeIcon /> <span className="text-[9px] font-black uppercase tracking-tighter">Bán hàng</span></button>
                         <button onClick={() => setView('report')} className={`flex flex-col items-center gap-1 ${view === 'report' ? 'active-tab' : 'text-slate-300'}`}><ChartIcon /> <span className="text-[9px] font-black uppercase tracking-tighter">Báo cáo</span></button>
                         <button onClick={() => setView('settings')} className={`flex flex-col items-center gap-1 ${view === 'settings' ? 'active-tab' : 'text-slate-300'}`}><div className={`w-5 h-5 rounded-full border-2 ${view === 'settings' ? 'border-blue-500 bg-blue-100' : 'border-current'}`}></div> <span className="text-[9px] font-black uppercase tracking-tighter">Cài đặt</span></button>
                     </nav>
 
-                    {/* Floating Payment Button */}
+                    {/* Pay Button */}
                     {view === 'pos' && totalAmount > 0 && !loading && (
                         <div className="fixed bottom-28 inset-x-5 z-40">
                             <button onClick={saveOrder} className="w-full bg-slate-900 text-white p-5 rounded-3xl shadow-2xl flex justify-between items-center btn-press">
@@ -353,7 +351,7 @@
                         </div>
                     )}
 
-                    {/* Modal Thêm Khách / Sản phẩm / Chọn SL */}
+                    {/* Modals */}
                     {showAddCust && (
                         <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center p-6 animate-up">
                             <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
@@ -363,20 +361,6 @@
                                 <div className="flex gap-2">
                                     <button onClick={() => setShowAddCust(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Huỷ</button>
                                     <button onClick={() => handleAddNew('cust')} className="flex-2 px-8 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs">Lưu khách</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {showAddProd && (
-                        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center p-6 animate-up">
-                            <div className="bg-white w-full rounded-3xl p-6 space-y-4 shadow-2xl">
-                                <h3 className="font-black text-lg">Thêm SP Mới</h3>
-                                <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Tên sản phẩm" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})}/>
-                                <input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-bold" placeholder="Giá bán (đ)" value={newProd.price} onChange={e => setNewProd({...newProd, price: e.target.value})}/>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setShowAddProd(false)} className="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Huỷ</button>
-                                    <button onClick={() => handleAddNew('prod')} className="flex-2 px-8 bg-blue-600 text-white font-black rounded-2xl shadow-lg uppercase text-xs">Thêm sản phẩm</button>
                                 </div>
                             </div>
                         </div>
@@ -408,7 +392,7 @@
                         </div>
                     )}
 
-                    {/* Modal HIỂN THỊ HÓA ĐƠN */}
+                    {/* Receipt UI */}
                     {showBill && (
                         <div className="fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center p-6">
                             {!billImg ? (
@@ -425,7 +409,7 @@
                         </div>
                     )}
 
-                    {/* VÙNG CHỨA HÓA ĐƠN ẨN ĐỂ CHỤP ẢNH */}
+                    {/* Hidden Receipt for Screenshot */}
                     <div className="fixed -left-[9999px] top-0">
                         <div ref={receiptRef} className="w-[800px] bg-white text-black font-sans p-20">
                             <div className="text-center mb-16">
@@ -434,7 +418,7 @@
                                 </h1>
                                 <div className="flex items-center justify-center gap-4">
                                     <div className="h-1 w-24 bg-blue-200"></div>
-                                    <span className="text-lg font-black uppercase tracking-[0.4em] text-blue-300">Khánh Cường</span>
+                                    <span className="text-lg font-black uppercase tracking-[0.4em] text-blue-300">KHÁNH CƯỜNG</span>
                                     <div className="h-1 w-24 bg-blue-200"></div>
                                 </div>
                                 <p className="text-sm font-bold opacity-30 mt-8 tracking-widest italic">
@@ -497,7 +481,7 @@
                                 <p className="text-lg font-black uppercase tracking-[0.8em] text-blue-800 opacity-20">Cảm ơn quý khách</p>
                                 <div className="mt-6 flex justify-center items-center gap-4 opacity-30">
                                     <div className="h-px w-10 bg-blue-900"></div>
-                                    <p className="text-sm font-bold italic">Khánh Cường - Cát Tường</p>
+                                    <p className="text-sm font-bold italic">KHÁNH CƯỜNG - Cát Tường</p>
                                     <div className="h-px w-10 bg-blue-900"></div>
                                 </div>
                             </div>
