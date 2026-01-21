@@ -51,6 +51,11 @@
             const [inputNote, setInputNote] = useState('');
             const [showAddModal, setShowAddModal] = useState(null);
             const [formData, setFormData] = useState({ name: '', val: '' });
+            
+            // Filter states for report
+            const [reportFilter, setReportFilter] = useState('day'); // day, month, year, custom
+            const [customDate, setCustomDate] = useState({ start: '', end: '' });
+
             const receiptRef = useRef(null);
 
             useEffect(() => { if (sheetUrl) fetchData(); }, []);
@@ -75,10 +80,37 @@
                 return cloudData.products.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase()));
             }, [prodSearch, cloudData.products]);
 
+            // New: Filtered Sales for Report
+            const filteredSales = useMemo(() => {
+                const now = new Date();
+                return cloudData.sales.filter(s => {
+                    const saleDate = new Date(s.date || s['Ngày']);
+                    if (reportFilter === 'day') {
+                        return saleDate.toDateString() === now.toDateString();
+                    } else if (reportFilter === 'month') {
+                        return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+                    } else if (reportFilter === 'year') {
+                        return saleDate.getFullYear() === now.getFullYear();
+                    } else if (reportFilter === 'custom') {
+                        if (!customDate.start || !customDate.end) return true;
+                        const start = new Date(customDate.start);
+                        start.setHours(0,0,0,0);
+                        const end = new Date(customDate.end);
+                        end.setHours(23,59,59,999);
+                        return saleDate >= start && saleDate <= end;
+                    }
+                    return true;
+                });
+            }, [cloudData.sales, reportFilter, customDate]);
+
+            const reportTotal = useMemo(() => {
+                return filteredSales.reduce((acc, s) => acc + Number(s.total || s['Tổng'] || 0), 0);
+            }, [filteredSales]);
+
             const saveOrder = async () => {
                 if (!sheetUrl || cart.length === 0) return;
                 setLoading(true);
-                setPreviewData(null); // Clear preview to use current cart
+                setPreviewData(null); 
                 const total = cart.reduce((acc, i) => acc + (i.appliedPrice * i.qty), 0);
                 const details = cart.map(i => `${i.name} (x${i.qty}) [Giá:${i.appliedPrice}]${i.note ? ` [Ghi chú: ${i.note}]` : ''}`).join(', ');
                 const orderData = { action: 'saveOrder', customer, note: orderNote, total, details };
@@ -86,7 +118,6 @@
                 try {
                     await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
                     setShowBill(true);
-                    // Chờ render DOM hóa đơn rồi mới chụp ảnh
                     setTimeout(async () => {
                         if (receiptRef.current) {
                             const canvas = await html2canvas(receiptRef.current, { scale: 2 });
@@ -135,12 +166,11 @@
             const closeBill = () => {
                 setShowBill(false);
                 setBillImg(null);
-                // Nếu là đơn vừa mới lưu (không phải xem lại lịch sử)
                 if (!previewData) {
                     setCart([]);
                     setCustomer('Khách lẻ');
                     setOrderNote('');
-                    fetchData(); // Cập nhật lại sổ bán hàng
+                    fetchData();
                 }
                 setPreviewData(null);
             };
@@ -164,7 +194,7 @@
                     <header className="px-5 py-4 bg-white flex justify-between items-center z-20 shadow-sm">
                         <div className="flex flex-col">
                             <h1 className="text-lg font-black text-blue-600 italic uppercase leading-none">KHÁNH CƯỜNG</h1>
-                            <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Cát Tường - POS</span>
+                            <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Cát Tường - Đẹp Trai</span>
                         </div>
                         <button onClick={fetchData} className={`p-2 bg-slate-50 rounded-full ${loading ? 'animate-spin' : ''}`}>🔄</button>
                     </header>
@@ -193,12 +223,12 @@
 
                                 <div className="space-y-3 pt-2">
                                     <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-black text-slate-300 uppercase">Danh mục món</span>
-                                        <button onClick={() => setShowAddModal('prod')} className="text-blue-600 font-black text-[10px] uppercase">+ Thêm món mới</button>
+                                        <span className="text-[10px] font-black text-slate-300 uppercase">Danh mục SP</span>
+                                        <button onClick={() => setShowAddModal('prod')} className="text-blue-600 font-black text-[10px] uppercase">+ Thêm SP mới</button>
                                     </div>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-4 flex items-center text-slate-400"><SearchIcon /></div>
-                                        <input className="w-full pl-11 pr-4 py-4 glass-card outline-none text-sm font-bold shadow-sm" placeholder="Tìm tên món ăn/uống..." value={prodSearch} onChange={e => setProdSearch(e.target.value)} />
+                                        <input className="w-full pl-11 pr-4 py-4 glass-card outline-none text-sm font-bold shadow-sm" placeholder="Tìm tên sản phẩm..." value={prodSearch} onChange={e => setProdSearch(e.target.value)} />
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         {filteredProducts.map((p, i) => (
@@ -230,19 +260,51 @@
                         )}
 
                         {view === 'report' && (
-                            <div className="space-y-3 animate-up">
-                                {cloudData.sales.slice().reverse().map((s, i) => (
-                                    <div key={i} className="glass-card p-4 flex justify-between items-center shadow-sm">
-                                        <div className="flex-1 mr-3">
-                                            <div className="text-sm font-black uppercase truncate">{s.customer || s['Khách hàng']}</div>
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{new Date(s.date || s['Ngày']).toLocaleString('vi-VN')}</div>
-                                        </div>
-                                        <div className="text-right flex flex-col items-end gap-1">
-                                            <div className="text-sm font-black text-blue-600 italic">{(Number(s.total || s['Tổng'])).toLocaleString()}đ</div>
-                                            <button onClick={() => handleViewHistory(s)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Chi tiết</button>
-                                        </div>
+                            <div className="space-y-3 animate-up pb-10">
+                                {/* Report Filters */}
+                                <div className="glass-card p-3 flex flex-col gap-3">
+                                    <div className="flex bg-slate-100 p-1 rounded-2xl">
+                                        {['day', 'month', 'year', 'custom'].map(type => (
+                                            <button 
+                                                key={type} 
+                                                onClick={() => setReportFilter(type)}
+                                                className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${reportFilter === type ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
+                                            >
+                                                {type === 'day' ? 'Ngày' : type === 'month' ? 'Tháng' : type === 'year' ? 'Năm' : 'Lọc'}
+                                            </button>
+                                        ))}
                                     </div>
-                                ))}
+                                    {reportFilter === 'custom' && (
+                                        <div className="flex gap-2 items-center px-1 animate-up">
+                                            <input type="date" className="flex-1 text-[11px] font-bold p-2 bg-slate-50 border rounded-lg outline-none" value={customDate.start} onChange={e => setCustomDate({...customDate, start: e.target.value})} />
+                                            <span className="text-slate-300">➔</span>
+                                            <input type="date" className="flex-1 text-[11px] font-bold p-2 bg-slate-50 border rounded-lg outline-none" value={customDate.end} onChange={e => setCustomDate({...customDate, end: e.target.value})} />
+                                        </div>
+                                    )}
+                                    <div className="px-2 py-1 flex justify-between items-end border-t border-slate-50 pt-3">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Doanh thu tổng:</div>
+                                        <div className="text-xl font-black italic text-blue-600 leading-none">{reportTotal.toLocaleString()}đ</div>
+                                    </div>
+                                </div>
+
+                                {/* Sales List */}
+                                <div className="space-y-3">
+                                    {filteredSales.slice().reverse().map((s, i) => (
+                                        <div key={i} className="glass-card p-4 flex justify-between items-center shadow-sm">
+                                            <div className="flex-1 mr-3">
+                                                <div className="text-sm font-black uppercase truncate">{s.customer || s['Khách hàng']}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{new Date(s.date || s['Ngày']).toLocaleString('vi-VN')}</div>
+                                            </div>
+                                            <div className="text-right flex flex-col items-end gap-1">
+                                                <div className="text-sm font-black text-blue-600 italic">{(Number(s.total || s['Tổng'])).toLocaleString()}đ</div>
+                                                <button onClick={() => handleViewHistory(s)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Chi tiết</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {filteredSales.length === 0 && (
+                                        <div className="text-center py-10 text-slate-300 font-bold uppercase text-xs">Không có dữ liệu đơn hàng</div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -279,7 +341,7 @@
                                     <input type="number" inputMode="numeric" className="w-32 bg-transparent text-center text-6xl font-black italic outline-none text-slate-900 border-b-4 border-blue-100 focus:border-blue-600" value={inputQty} onChange={(e) => setInputQty(e.target.value)} onFocus={(e) => e.target.select()} />
                                     <button onClick={() => setInputQty(parseInt(inputQty || 0) + 1)} className="w-14 h-14 bg-white rounded-full shadow-lg text-2xl font-bold flex items-center justify-center">+</button>
                                 </div>
-                                <input className="w-full p-5 bg-slate-50 rounded-2xl outline-none font-bold text-center italic" placeholder="Ghi chú món này..." value={inputNote} onChange={e => setInputNote(e.target.value)} />
+                                <input className="w-full p-5 bg-slate-50 rounded-2xl outline-none font-bold text-center italic " placeholder="Ghi chú SP này..." value={inputNote} onChange={e => setInputNote(e.target.value)} />
                                 <div className="flex gap-3">
                                     <button onClick={() => setSelectingItem(null)} className="flex-1 py-5 font-bold text-slate-400 uppercase tracking-widest">Hủy</button>
                                     <button onClick={() => {
@@ -307,8 +369,8 @@
                     {showAddModal && (
                         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center p-6 backdrop-blur-sm">
                             <div className="bg-white w-full p-8 rounded-[32px] space-y-4 animate-up">
-                                <h3 className="font-black text-center uppercase text-blue-600 tracking-widest">{showAddModal === 'cust' ? 'Thêm khách hàng' : 'Thêm món ăn/uống'}</h3>
-                                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" placeholder={showAddModal === 'cust' ? 'Tên khách...' : 'Tên món...'} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                <h3 className="font-black text-center uppercase text-blue-600 tracking-widest">{showAddModal === 'cust' ? 'Thêm khách hàng' : 'Thêm sản phẩm'}</h3>
+                                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" placeholder={showAddModal === 'cust' ? 'Tên khách...' : 'Tên SP...'} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                                 <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" placeholder={showAddModal === 'cust' ? 'SĐT/Địa chỉ...' : 'Giá bán...'} type={showAddModal === 'prod' ? 'number' : 'text'} value={formData.val} onChange={e => setFormData({...formData, val: e.target.value})} />
                                 <div className="flex gap-3 pt-2">
                                     <button onClick={() => setShowAddModal(null)} className="flex-1 py-4 font-bold text-slate-400">Hủy</button>
@@ -327,7 +389,7 @@
                             </div>
 
                             <div className="text-center mb-12 border-y-4 border-double border-black py-4">
-                                <h2 className="text-5xl font-bold uppercase tracking-[0.3em]">Hóa Đơn</h2>
+                                <h2 className="text-5xl font-bold uppercase tracking-[0.3em]">Đơn Hàng</h2>
                             </div>
 
                             <div className="mb-14 space-y-4 text-2xl">
@@ -336,7 +398,7 @@
                                     <span className="italic">Ngày: {previewData ? previewData.date : new Date().toLocaleString('vi-VN')}</span>
                                 </div>
                                 {(previewData ? previewData.note : orderNote) && (
-                                    <div className="italic text-slate-600 border-l-8 border-slate-200 pl-4">
+                                    <div className="italic text-red-600 border-l-8 border-red-600 pl-4 py-2 bg-red-50">
                                         📌 Ghi chú: {previewData ? previewData.note : orderNote}
                                     </div>
                                 )}
@@ -356,7 +418,7 @@
                                         <tr key={i} className="border-b border-dashed border-slate-300 text-2xl">
                                             <td className="py-8">
                                                 <div className="font-bold uppercase leading-tight">{item.name}</div>
-                                                {item.note && <div className="text-xl italic ">* {item.note}</div>}
+                                                {item.note && <div className="text-xl italic text-red-600">* {item.note}</div>}
                                             </td>
                                             <td className="text-center font-bold italic">{item.qty}</td>
                                             <td className="text-right font-bold text-red-600">{Number(item.appliedPrice).toLocaleString()}</td>
@@ -375,7 +437,7 @@
 
                             <div className="mt-24 text-center">
                                 <p className="text-3xl font-bold uppercase tracking-[0.5em] opacity-80">Trân Trọng Cảm Ơn Quý Khách</p>
-                                <p className="text-xl italic opacity-30 mt-4 uppercase">Hẹn gặp lại quý khách lần sau</p>
+                                <p className="text-xl italic opacity-30 mt-4 uppercase">Chúc Quý Khách Mua May Bán Đắt</p>
                             </div>
                         </div>
                     </div>
