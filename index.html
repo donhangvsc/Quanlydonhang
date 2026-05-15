@@ -483,7 +483,7 @@
                             </div>
 
                             <div className="flex justify-between items-center mt-10 py-6 border-t-4 bill-border-navy">
-                                <span className="text-3xl font-black bill-navy uppercase tracking-widest">Tổng tiền phải trả</span>
+                                <span className="text-3xl font-black bill-navy uppercase tracking-widest">Tổng tiền </span>
                                 <span className="text-4xl font-black bill-navy italic">
                                     {Number(previewData ? previewData.total : cart.reduce((acc, i) => acc + (i.appliedPrice * i.qty), 0)).toLocaleString()}đ
                                 </span>
